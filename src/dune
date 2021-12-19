@@ -1,3 +1,5 @@
+(ocamllex lexer)
+
 (executable
  (public_name scmz)
  (name main)
