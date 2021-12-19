@@ -1,0 +1,4 @@
+(executable
+ (public_name scmz)
+ (name main)
+ (libraries compiler-libs.bytecomp))
