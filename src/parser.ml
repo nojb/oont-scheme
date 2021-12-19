@@ -1,5 +1,14 @@
-type datum_desc = List of datum list | Quote of datum | Int of int
+type datum_desc = List of datum list | Symbol of string | Int of int
 and datum = { desc : datum_desc }
+
+let rec print_datum ppf x =
+  match x.desc with
+  | List l ->
+      Format.fprintf ppf "@[<1>(%a)@]"
+        (Format.pp_print_list ~pp_sep:Format.pp_print_space print_datum)
+        l
+  | Symbol s -> Format.pp_print_string ppf s
+  | Int n -> Format.pp_print_int ppf n
 
 let rec datum toks =
   match toks with
@@ -14,8 +23,9 @@ let rec datum toks =
       loop [] toks
   | QUOTE :: toks ->
       let x, toks = datum toks in
-      ({ desc = Quote x }, toks)
+      ({ desc = List [ { desc = Symbol "quote" }; x ] }, toks)
   | INT s :: toks -> ({ desc = Int (int_of_string s) }, toks)
+  | SYMBOL s :: toks -> ({ desc = Symbol s }, toks)
   | _ -> failwith "syntax error"
 
 let parse lexbuf =

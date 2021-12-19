@@ -5,6 +5,7 @@ type token =
   | LPAREN
   | RPAREN
   | QUOTE
+  | SYMBOL of string
 }
 
 rule token = parse
@@ -20,5 +21,7 @@ rule token = parse
     { QUOTE }
 | ['0'-'9']+ as s
     { INT s }
+| ['a'-'z''+']+ as s
+    { SYMBOL s }
 | eof
     { EOF }
