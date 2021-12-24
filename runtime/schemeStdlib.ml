@@ -1,5 +1,17 @@
 exception Error of string
 
+type sym = { name : string }
+
+module H = Weak.Make (struct
+  type t = sym
+
+  let hash = Hashtbl.hash
+  let equal sym1 sym2 = String.equal sym1.name sym2.name
+end)
+
+let symbols = H.create 0
+let sym name = Obj.repr (H.merge symbols { name })
+
 let rec print ppf x =
   if Obj.is_int x then
     let x = Obj.obj x in
