@@ -9,6 +9,34 @@ module Helpers = struct
     L.Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
 end
 
+module Env : sig
+  type data =
+    | Psyntax of (t -> Parser.datum list -> Lambda.lambda)
+    | Pvar of Ident.t
+    | Pprim of (Lambda.lambda list -> Lambda.lambda)
+
+  and t
+
+  val empty : t
+  val find : string -> t -> data option
+  val add_syntax : string -> (t -> Parser.datum list -> Lambda.lambda) -> t -> t
+  val add_prim : string -> (Lambda.lambda list -> Lambda.lambda) -> t -> t
+end = struct
+  module Map = Map.Make (String)
+
+  type data =
+    | Psyntax of (t -> Parser.datum list -> Lambda.lambda)
+    | Pvar of Ident.t
+    | Pprim of (Lambda.lambda list -> Lambda.lambda)
+
+  and t = data Map.t
+
+  let empty = Map.empty
+  let find = Map.find_opt
+  let add_syntax s f t = Map.add s (Psyntax f) t
+  let add_prim s f t = Map.add s (Pprim f) t
+end
+
 let extract_int lam =
   let id = Ident.create_local "n" in
   L.Llet
@@ -69,9 +97,31 @@ let get_sym s =
       id
   | Some id -> id
 
-let rec comp datum =
-  match datum with
-  | { Parser.desc = List [ { desc = Symbol "quote" }; x ] } ->
+let rec comp env e =
+  match e with
+  | { Parser.desc = List ({ desc = Symbol s } :: args) } -> (
+      match Env.find s env with
+      | Some (Psyntax f) -> f env args
+      | Some (Pvar id) -> Lambda.Lvar id
+      | Some (Pprim f) -> f (List.map (comp env) args)
+      | None -> Printf.ksprintf failwith "Not found: %s" s)
+  | { desc = Int n } -> Lconst (L.const_int (n lsl 1))
+  | x ->
+      Format.eprintf ">>> @[%a@]@." Parser.print_datum x;
+      assert false
+
+let add_prim = function
+  | [ x1; x2 ] ->
+      let n1 = extract_int x1 in
+      let n2 = extract_int x2 in
+      L.Lprim
+        ( Plslint,
+          [ Lprim (Paddint, [ n1; n2 ], Loc_unknown); Lconst (L.const_int 1) ],
+          Loc_unknown )
+  | _ -> failwith "+: bad number of arguments"
+
+let quote_syntax _ = function
+  | [ x ] ->
       let rec quote = function
         | { Parser.desc = List datums } ->
             let rec cons cdr = function
@@ -89,19 +139,16 @@ let rec comp datum =
         | { desc = Symbol s } -> L.Lvar (get_sym s)
       in
       quote x
-  | { desc = Int n } -> Lconst (L.const_int (n lsl 1))
-  | { desc = List [ { desc = Symbol "if" }; x1; x2; x3 ] } ->
-      Helpers.if_ (comp x1) (comp x2) (comp x3)
-  | { desc = List [ { desc = Symbol "+" }; x1; x2 ] } ->
-      let n1 = extract_int (comp x1) in
-      let n2 = extract_int (comp x2) in
-      L.Lprim
-        ( Plslint,
-          [ Lprim (Paddint, [ n1; n2 ], Loc_unknown); Lconst (L.const_int 1) ],
-          Loc_unknown )
-  | x ->
-      Format.eprintf ">>> @[%a@]@." Parser.print_datum x;
-      assert false
+  | [] -> failwith "quote: not enough arguments"
+  | _ :: _ :: _ -> failwith "quote: too many arguments"
+
+let if_syntax env = function
+  | [ x1; x2; x3 ] -> Helpers.if_ (comp env x1) (comp env x2) (comp env x3)
+  | _ -> failwith "if: bad number of arguments"
+
+let initial_env =
+  Env.add_syntax "if" if_syntax
+    (Env.add_syntax "quote" quote_syntax (Env.add_prim "+" add_prim Env.empty))
 
 let to_bytecode fname lam =
   let bname = Filename.remove_extension (Filename.basename fname) in
@@ -126,14 +173,14 @@ let lapply ap_func ap_args =
 
 let process fname =
   let ic = open_in_bin fname in
-  let datum =
+  let e =
     Fun.protect
       ~finally:(fun () -> close_in_noerr ic)
       (fun () ->
         let lexbuf = Lexing.from_channel ic in
         Parser.parse lexbuf)
   in
-  let lam = comp datum in
+  let lam = comp initial_env e in
   let lam =
     Hashtbl.fold
       (fun sym id lam ->
