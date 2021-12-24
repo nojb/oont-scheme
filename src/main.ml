@@ -113,10 +113,10 @@ let rec comp env e =
   | { desc = Int n } -> Lconst (L.const_int (n lsl 1))
   | { desc = List (f :: args) } ->
       scheme_apply (comp env f) (List.map (comp env) args)
-  | { desc = List [] } -> assert false
+  | { desc = List [] } -> failwith "missing procedure"
   | { desc = Symbol s } -> (
       match Env.find s env with
-      | Some (Psyntax _) -> assert false
+      | Some (Psyntax _) -> Printf.ksprintf failwith "%s: bad syntax" s
       | Some (Pvar id) -> Lambda.Lvar id
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> Printf.ksprintf failwith "Not found: %s" s)
