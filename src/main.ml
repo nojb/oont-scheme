@@ -7,6 +7,58 @@ module Helpers = struct
 
   let if_ x1 x2 x3 =
     L.Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
+
+  let extract_int lam =
+    let id = Ident.create_local "n" in
+    L.Llet
+      ( Strict,
+        Pgenval,
+        id,
+        lam,
+        Lifthenelse
+          ( Lprim (Pisint, [ Lvar id ], Loc_unknown),
+            Lifthenelse
+              ( Lprim
+                  ( Pintcomp Ceq,
+                    [
+                      Lprim
+                        ( Pandint,
+                          [ Lvar id; Lconst (L.const_int 1) ],
+                          Loc_unknown );
+                      Lconst (L.const_int 0);
+                    ],
+                    Loc_unknown ),
+                Lprim (Plsrint, [ Lvar id; Lconst (L.const_int 1) ], Loc_unknown),
+                Lprim
+                  ( Praise Raise_regular,
+                    [
+                      Lprim
+                        ( Pmakeblock (0, Immutable, None),
+                          [
+                            Lprim
+                              ( Pfield 0,
+                                [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
+                                Loc_unknown );
+                            Lconst (Const_immstring "Type error");
+                          ],
+                          Loc_unknown );
+                    ],
+                    Loc_unknown ) ),
+            Lprim
+              ( Praise Raise_regular,
+                [
+                  Lprim
+                    ( Pmakeblock (0, Immutable, None),
+                      [
+                        Lprim
+                          ( Pfield 0,
+                            [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
+                            Loc_unknown );
+                        Lconst (Const_immstring "Type error");
+                      ],
+                      Loc_unknown );
+                ],
+                Loc_unknown ) ) )
 end
 
 module Env : sig
@@ -37,56 +89,6 @@ end = struct
   let add_prim s f t = Map.add s (Pprim f) t
 end
 
-let extract_int lam =
-  let id = Ident.create_local "n" in
-  L.Llet
-    ( Strict,
-      Pgenval,
-      id,
-      lam,
-      Lifthenelse
-        ( Lprim (Pisint, [ Lvar id ], Loc_unknown),
-          Lifthenelse
-            ( Lprim
-                ( Pintcomp Ceq,
-                  [
-                    Lprim
-                      (Pandint, [ Lvar id; Lconst (L.const_int 1) ], Loc_unknown);
-                    Lconst (L.const_int 0);
-                  ],
-                  Loc_unknown ),
-              Lprim (Plsrint, [ Lvar id; Lconst (L.const_int 1) ], Loc_unknown),
-              Lprim
-                ( Praise Raise_regular,
-                  [
-                    Lprim
-                      ( Pmakeblock (0, Immutable, None),
-                        [
-                          Lprim
-                            ( Pfield 0,
-                              [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
-                              Loc_unknown );
-                          Lconst (Const_immstring "Type error");
-                        ],
-                        Loc_unknown );
-                  ],
-                  Loc_unknown ) ),
-          Lprim
-            ( Praise Raise_regular,
-              [
-                Lprim
-                  ( Pmakeblock (0, Immutable, None),
-                    [
-                      Lprim
-                        ( Pfield 0,
-                          [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
-                          Loc_unknown );
-                      Lconst (Const_immstring "Type error");
-                    ],
-                    Loc_unknown );
-              ],
-              Loc_unknown ) ) )
-
 let syms = Hashtbl.create 0
 
 let get_sym s =
@@ -97,23 +99,36 @@ let get_sym s =
       id
   | Some id -> id
 
+let scheme_apply _ _ = assert false
+
 let rec comp env e =
   match e with
   | { Parser.desc = List ({ desc = Symbol s } :: args) } -> (
       match Env.find s env with
       | Some (Psyntax f) -> f env args
-      | Some (Pvar id) -> Lambda.Lvar id
+      | Some (Pvar id) ->
+          scheme_apply (Lambda.Lvar id) (List.map (comp env) args)
       | Some (Pprim f) -> f (List.map (comp env) args)
       | None -> Printf.ksprintf failwith "Not found: %s" s)
   | { desc = Int n } -> Lconst (L.const_int (n lsl 1))
-  | x ->
-      Format.eprintf ">>> @[%a@]@." Parser.print_datum x;
-      assert false
+  | { desc = List (f :: args) } ->
+      scheme_apply (comp env f) (List.map (comp env) args)
+  | { desc = List [] } -> assert false
+  | { desc = Symbol s } -> (
+      match Env.find s env with
+      | Some (Psyntax _) -> assert false
+      | Some (Pvar id) -> Lambda.Lvar id
+      | Some (Pprim _) -> assert false (* eta-expand *)
+      | None -> Printf.ksprintf failwith "Not found: %s" s)
+
+(* | x -> *)
+(*     Format.eprintf ">>> @[%a@]@." Parser.print_datum x; *)
+(*     assert false *)
 
 let add_prim = function
   | [ x1; x2 ] ->
-      let n1 = extract_int x1 in
-      let n2 = extract_int x2 in
+      let n1 = Helpers.extract_int x1 in
+      let n2 = Helpers.extract_int x2 in
       L.Lprim
         ( Plslint,
           [ Lprim (Paddint, [ n1; n2 ], Loc_unknown); Lconst (L.const_int 1) ],
