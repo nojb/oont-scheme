@@ -1,16 +1,18 @@
 exception Error of string
 
-type sym = { name : string }
-
 module H = Weak.Make (struct
-  type t = sym
+  type t = Obj.t
 
   let hash = Hashtbl.hash
-  let equal sym1 sym2 = String.equal sym1.name sym2.name
+
+  let equal x1 x2 =
+    String.equal (Obj.obj (Obj.field x1 0)) (Obj.obj (Obj.field x2 0))
 end)
 
 let symbols = H.create 0
-let sym name = Obj.repr (H.merge symbols { name })
+
+let sym name =
+  Obj.repr (H.merge symbols (Obj.with_tag 2 (Obj.repr (Some name))))
 
 let rec print ppf x =
   if Obj.is_int x then
@@ -23,6 +25,7 @@ let rec print ppf x =
     | 0 ->
         Format.fprintf ppf "@[<1>(%a .@ %a)@]" print (Obj.field x 0) print
           (Obj.field x 1)
+    | 2 -> Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
     | _ -> assert false
 
 let print x = Format.printf "@[%a@]@." print x

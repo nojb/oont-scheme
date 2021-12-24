@@ -23,5 +23,7 @@ rule token = parse
     { INT s }
 | ['a'-'z''+']+ as s
     { SYMBOL s }
+| ';' [^'\n']*
+    { token lexbuf }
 | eof
     { EOF }
