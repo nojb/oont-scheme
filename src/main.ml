@@ -14,6 +14,16 @@ module Helpers = struct
   let undefined = Lconst (const_int 0b1111)
   let stdlib_prim = Lambda.transl_prim "SchemeStdlib"
 
+  let error_exn =
+    lazy
+      (let env = Env.add_persistent_structure stdlib_ident Env.empty in
+       let lid = Longident.Ldot (Longident.Lident "SchemeStdlib", "Error") in
+       match Env.find_constructor_by_name lid env with
+       | { cstr_tag = Cstr_extension (path, _); _ } ->
+           transl_extension_path Loc_unknown env path
+       | _ -> Misc.fatal_error "Error extension not found."
+       | exception Not_found -> Misc.fatal_error "Error extension not found.")
+
   let cons car cdr =
     Lprim (Pmakeblock (0, Mutable, None), [ car; cdr ], Loc_unknown)
 
@@ -36,7 +46,7 @@ module Helpers = struct
           Lprim
             ( Pmakeblock (0, Immutable, None),
               [
-                stdlib_prim "Error";
+                Lazy.force error_exn;
                 errorv ~loc:Location.none "Type error" [ obj ];
               ],
               Loc_unknown );
