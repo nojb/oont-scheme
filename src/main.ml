@@ -1,16 +1,36 @@
-module L = Lambda
+open Lambda
 
 let stdlib = Ident.create_persistent "SchemeStdlib"
 
 module Helpers = struct
-  let falsev = L.Lconst (L.const_int 1)
+  let falsev = Lconst (const_int 1)
+  let int n = Lconst (const_int (n lsl 1))
+  let unsafe_toint n = Lprim (Plsrint, [ n; Lconst (const_int 1) ], Loc_unknown)
+  let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
 
   let if_ x1 x2 x3 =
-    L.Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
+    Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
 
-  let extract_int lam =
+  let type_error () =
+    Lprim
+      ( Praise Raise_regular,
+        [
+          Lprim
+            ( Pmakeblock (0, Immutable, None),
+              [
+                Lprim
+                  ( Pfield 0,
+                    [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
+                    Loc_unknown );
+                Lconst (Const_immstring "Type error");
+              ],
+              Loc_unknown );
+        ],
+        Loc_unknown )
+
+  let toint lam =
     let id = Ident.create_local "n" in
-    L.Llet
+    Llet
       ( Strict,
         Pgenval,
         id,
@@ -22,64 +42,34 @@ module Helpers = struct
                   ( Pintcomp Ceq,
                     [
                       Lprim
-                        ( Pandint,
-                          [ Lvar id; Lconst (L.const_int 1) ],
-                          Loc_unknown );
-                      Lconst (L.const_int 0);
+                        (Pandint, [ Lvar id; Lconst (const_int 1) ], Loc_unknown);
+                      Lconst (const_int 0);
                     ],
                     Loc_unknown ),
-                Lprim (Plsrint, [ Lvar id; Lconst (L.const_int 1) ], Loc_unknown),
-                Lprim
-                  ( Praise Raise_regular,
-                    [
-                      Lprim
-                        ( Pmakeblock (0, Immutable, None),
-                          [
-                            Lprim
-                              ( Pfield 0,
-                                [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
-                                Loc_unknown );
-                            Lconst (Const_immstring "Type error");
-                          ],
-                          Loc_unknown );
-                    ],
-                    Loc_unknown ) ),
-            Lprim
-              ( Praise Raise_regular,
-                [
-                  Lprim
-                    ( Pmakeblock (0, Immutable, None),
-                      [
-                        Lprim
-                          ( Pfield 0,
-                            [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
-                            Loc_unknown );
-                        Lconst (Const_immstring "Type error");
-                      ],
-                      Loc_unknown );
-                ],
-                Loc_unknown ) ) )
+                unsafe_toint (Lvar id),
+                type_error () ),
+            type_error () ) )
 end
 
 module Env : sig
   type data =
-    | Psyntax of (t -> Parser.datum list -> Lambda.lambda)
+    | Psyntax of (t -> Parser.datum list -> lambda)
     | Pvar of Ident.t
-    | Pprim of (Lambda.lambda list -> Lambda.lambda)
+    | Pprim of (lambda list -> lambda)
 
   and t
 
   val empty : t
   val find : string -> t -> data option
-  val add_syntax : string -> (t -> Parser.datum list -> Lambda.lambda) -> t -> t
-  val add_prim : string -> (Lambda.lambda list -> Lambda.lambda) -> t -> t
+  val add_syntax : string -> (t -> Parser.datum list -> lambda) -> t -> t
+  val add_prim : string -> (lambda list -> lambda) -> t -> t
 end = struct
   module Map = Map.Make (String)
 
   type data =
-    | Psyntax of (t -> Parser.datum list -> Lambda.lambda)
+    | Psyntax of (t -> Parser.datum list -> lambda)
     | Pvar of Ident.t
-    | Pprim of (Lambda.lambda list -> Lambda.lambda)
+    | Pprim of (lambda list -> lambda)
 
   and t = data Map.t
 
@@ -106,18 +96,17 @@ let rec comp env e =
   | { Parser.desc = List ({ desc = Symbol s } :: args) } -> (
       match Env.find s env with
       | Some (Psyntax f) -> f env args
-      | Some (Pvar id) ->
-          scheme_apply (Lambda.Lvar id) (List.map (comp env) args)
+      | Some (Pvar id) -> scheme_apply (Lvar id) (List.map (comp env) args)
       | Some (Pprim f) -> f (List.map (comp env) args)
       | None -> Printf.ksprintf failwith "Not found: %s" s)
-  | { desc = Int n } -> Lconst (L.const_int (n lsl 1))
+  | { desc = Int n } -> Helpers.int n
   | { desc = List (f :: args) } ->
       scheme_apply (comp env f) (List.map (comp env) args)
   | { desc = List [] } -> failwith "missing procedure"
   | { desc = Symbol s } -> (
       match Env.find s env with
       | Some (Psyntax _) -> Printf.ksprintf failwith "%s: bad syntax" s
-      | Some (Pvar id) -> Lambda.Lvar id
+      | Some (Pvar id) -> Lvar id
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> Printf.ksprintf failwith "Not found: %s" s)
 
@@ -127,12 +116,9 @@ let rec comp env e =
 
 let add_prim = function
   | [ x1; x2 ] ->
-      let n1 = Helpers.extract_int x1 in
-      let n2 = Helpers.extract_int x2 in
-      L.Lprim
-        ( Plslint,
-          [ Lprim (Paddint, [ n1; n2 ], Loc_unknown); Lconst (L.const_int 1) ],
-          Loc_unknown )
+      let n1 = Helpers.toint x1 in
+      let n2 = Helpers.toint x2 in
+      Helpers.unsafe_ofint (Lprim (Paddint, [ n1; n2 ], Loc_unknown))
   | _ -> failwith "+: bad number of arguments"
 
 let quote_syntax _ = function
@@ -142,16 +128,16 @@ let quote_syntax _ = function
             let rec cons cdr = function
               | x :: xs ->
                   cons
-                    (L.Lprim
+                    (Lprim
                        ( Pmakeblock (0, Immutable, None),
                          [ quote x; cdr ],
                          Loc_unknown ))
                     xs
               | [] -> cdr
             in
-            cons (L.Lconst (L.const_int 0)) (List.rev datums)
-        | { desc = Int n } -> L.Lconst (L.const_int (n lsl 1))
-        | { desc = Symbol s } -> L.Lvar (get_sym s)
+            cons (Lconst (const_int 0)) (List.rev datums)
+        | { desc = Int n } -> Helpers.int n
+        | { desc = Symbol s } -> Lvar (get_sym s)
       in
       quote x
   | [] -> failwith "quote: not enough arguments"
@@ -176,7 +162,7 @@ let to_bytecode fname lam =
        ~required_globals:(Ident.Set.singleton stdlib)
 
 let lapply ap_func ap_args =
-  L.Lapply
+  Lapply
     {
       ap_func;
       ap_args;
@@ -199,7 +185,7 @@ let process fname =
   let lam =
     Hashtbl.fold
       (fun sym id lam ->
-        L.Llet
+        Llet
           ( Strict,
             Pgenval,
             id,
