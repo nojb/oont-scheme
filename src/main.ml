@@ -53,7 +53,7 @@ end
 
 module Env : sig
   type data =
-    | Psyntax of (t -> Parser.datum list -> lambda)
+    | Psyntax of (t -> Parser.expr list -> lambda)
     | Pvar of Ident.t
     | Pprim of (lambda list -> lambda)
 
@@ -61,13 +61,13 @@ module Env : sig
 
   val empty : t
   val find : string -> t -> data option
-  val add_syntax : string -> (t -> Parser.datum list -> lambda) -> t -> t
+  val add_syntax : string -> (t -> Parser.expr list -> lambda) -> t -> t
   val add_prim : string -> (lambda list -> lambda) -> t -> t
 end = struct
   module Map = Map.Make (String)
 
   type data =
-    | Psyntax of (t -> Parser.datum list -> lambda)
+    | Psyntax of (t -> Parser.expr list -> lambda)
     | Pvar of Ident.t
     | Pprim of (lambda list -> lambda)
 
@@ -91,19 +91,18 @@ let get_sym s =
 
 let scheme_apply _ _ = assert false
 
-let rec comp env e =
-  match e with
-  | { Parser.desc = List ({ desc = Symbol s } :: args) } -> (
+let rec comp env { Parser.desc; loc = _ } =
+  match desc with
+  | List ({ desc = Symbol s; loc = _ } :: args) -> (
       match Env.find s env with
       | Some (Psyntax f) -> f env args
       | Some (Pvar id) -> scheme_apply (Lvar id) (List.map (comp env) args)
       | Some (Pprim f) -> f (List.map (comp env) args)
       | None -> Printf.ksprintf failwith "Not found: %s" s)
-  | { desc = Int n } -> Helpers.intv n
-  | { desc = List (f :: args) } ->
-      scheme_apply (comp env f) (List.map (comp env) args)
-  | { desc = List [] } -> failwith "missing procedure"
-  | { desc = Symbol s } -> (
+  | Int n -> Helpers.intv n
+  | List (f :: args) -> scheme_apply (comp env f) (List.map (comp env) args)
+  | List [] -> failwith "missing procedure"
+  | Symbol s -> (
       match Env.find s env with
       | Some (Psyntax _) -> Printf.ksprintf failwith "%s: bad syntax" s
       | Some (Pvar id) -> Lvar id
@@ -123,8 +122,9 @@ let add_prim = function
 
 let quote_syntax _ = function
   | [ x ] ->
-      let rec quote = function
-        | { Parser.desc = List datums } ->
+      let rec quote { Parser.desc; loc = _ } =
+        match desc with
+        | List datums ->
             let rec cons cdr = function
               | x :: xs ->
                   cons
@@ -136,8 +136,8 @@ let quote_syntax _ = function
               | [] -> cdr
             in
             cons (Lconst (const_int 0)) (List.rev datums)
-        | { desc = Int n } -> Helpers.intv n
-        | { desc = Symbol s } -> Lvar (get_sym s)
+        | Int n -> Helpers.intv n
+        | Symbol s -> Lvar (get_sym s)
       in
       quote x
   | [] -> failwith "quote: not enough arguments"

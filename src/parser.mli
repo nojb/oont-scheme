@@ -1,5 +1,5 @@
-type datum_desc = List of datum list | Symbol of string | Int of int
-and datum = { desc : datum_desc }
+type desc = List of expr list | Symbol of string | Int of int
+and expr = { desc : desc; loc : Location.t }
 
-val print_datum : Format.formatter -> datum -> unit
-val parse : Lexing.lexbuf -> datum
+val print_expr : Format.formatter -> expr -> unit
+val parse : Lexing.lexbuf -> expr
