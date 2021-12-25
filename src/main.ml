@@ -7,38 +7,49 @@ module Helpers = struct
   let intv n = Lconst (const_int (n lsl 1))
   let unsafe_toint n = Lprim (Plsrint, [ n; Lconst (const_int 1) ], Loc_unknown)
   let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
-  let stringv s = Lconst (Const_immstring s)
+  let stringv ~loc s = Lconst (Const_base (Const_string (s, loc, None)))
   let emptylist = Lconst (const_int 0b111)
+  let undefined = Lconst (const_int 0b1111)
   let stdlib_prim = Lambda.transl_prim "SchemeStdlib"
+
+  let cons car cdr =
+    Lprim (Pmakeblock (0, Mutable, None), [ car; cdr ], Loc_unknown)
+
+  let listv xs =
+    List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
+
+  let errorv ~loc s objs =
+    Lprim
+      ( Pmakeblock (4, Immutable, None),
+        [ stringv ~loc s; listv objs ],
+        Loc_unknown )
 
   let if_ x1 x2 x3 =
     Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
 
-  let type_error () =
+  let type_error obj =
     Lprim
       ( Praise Raise_regular,
         [
           Lprim
             ( Pmakeblock (0, Immutable, None),
-              [ stdlib_prim "Error"; stringv "Type error" ],
+              [
+                stdlib_prim "Error";
+                errorv ~loc:Location.none "Type error" [ obj ];
+              ],
               Loc_unknown );
         ],
         Loc_unknown )
 
   let toint lam =
-    let id = Ident.create_local "n" in
-    Llet
-      ( Strict,
-        Pgenval,
-        id,
-        lam,
+    name_lambda Strict lam (fun id ->
         Lifthenelse
           ( Lprim (Pisint, [ Lvar id ], Loc_unknown),
             Lifthenelse
               ( Lprim (Pandint, [ Lvar id; Lconst (const_int 1) ], Loc_unknown),
-                type_error (),
+                type_error (Lvar id),
                 unsafe_toint (Lvar id) ),
-            type_error () ) )
+            type_error (Lvar id) ))
 
   let apply _ _ = assert false
 end
@@ -148,6 +159,7 @@ let quote_syntax ~loc _ = function
   | _ :: _ :: _ -> prerr_errorf ~loc "quote: too many arguments"
 
 let if_syntax ~loc env = function
+  | [ x1; x2 ] -> Helpers.if_ (comp env x1) (comp env x2) Helpers.undefined
   | [ x1; x2; x3 ] -> Helpers.if_ (comp env x1) (comp env x2) (comp env x3)
   | _ -> prerr_errorf ~loc "if: bad number of arguments"
 
@@ -187,7 +199,7 @@ let parse_file fname =
       Location.input_lexbuf := Some lexbuf;
       Parser.parse lexbuf)
 
-let process fname =
+let process_file fname =
   let e = parse_file fname in
   let lam = comp initial_env e in
   let lam =
@@ -199,10 +211,18 @@ let process fname =
             id,
             lapply (Helpers.stdlib_prim "sym") [ Lconst (Const_immstring s) ],
             lam ))
-      lam !symnames
+      lam (List.rev !symnames)
   in
   let lam = lapply (Helpers.stdlib_prim "print") [ lam ] in
   Format.printf "@[%a@]@." Printlambda.lambda lam;
   if !num_errors = 0 then to_bytecode fname lam
 
-let () = Arg.parse [] process ""
+let () =
+  let libdir =
+    Filename.concat
+      (Filename.dirname (Filename.dirname Sys.executable_name))
+      "lib"
+  in
+  let dir = Filename.concat (Filename.concat libdir "scmz") "scheme_stdlib" in
+  Compmisc.init_path ~dir ();
+  Arg.parse [] process_file ""

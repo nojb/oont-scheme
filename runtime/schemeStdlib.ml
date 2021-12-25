@@ -1,6 +1,6 @@
 type t = Obj.t
 
-exception Error of string * t list
+exception Error of t
 
 module H = Weak.Make (struct
   type nonrec t = t

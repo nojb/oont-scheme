@@ -1,6 +1,6 @@
 type t
 
-exception Error of string * t list
+exception Error of t
 
 val sym : string -> t
 val print : t -> unit
