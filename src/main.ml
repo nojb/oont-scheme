@@ -53,23 +53,26 @@ end
 
 module Env : sig
   type data =
-    | Psyntax of (t -> Parser.expr list -> lambda)
+    | Psyntax of (loc:Location.t -> t -> Parser.expr list -> lambda)
     | Pvar of Ident.t
-    | Pprim of (lambda list -> lambda)
+    | Pprim of (loc:Location.t -> lambda list -> lambda)
 
   and t
 
   val empty : t
   val find : string -> t -> data option
-  val add_syntax : string -> (t -> Parser.expr list -> lambda) -> t -> t
-  val add_prim : string -> (lambda list -> lambda) -> t -> t
+
+  val add_syntax :
+    string -> (loc:Location.t -> t -> Parser.expr list -> lambda) -> t -> t
+
+  val add_prim : string -> (loc:Location.t -> lambda list -> lambda) -> t -> t
 end = struct
   module Map = Map.Make (String)
 
   type data =
-    | Psyntax of (t -> Parser.expr list -> lambda)
+    | Psyntax of (loc:Location.t -> t -> Parser.expr list -> lambda)
     | Pvar of Ident.t
-    | Pprim of (lambda list -> lambda)
+    | Pprim of (loc:Location.t -> lambda list -> lambda)
 
   and t = data Map.t
 
@@ -90,37 +93,42 @@ let get_sym s =
   | Some id -> id
 
 let scheme_apply _ _ = assert false
+let num_errors = ref 0
 
-let rec comp env { Parser.desc; loc = _ } =
+let prerr_errorf ?loc fmt =
+  incr num_errors;
+  Printf.ksprintf
+    (fun s ->
+      Location.print_report Format.err_formatter (Location.error ?loc s);
+      Lconst const_unit)
+    fmt
+
+let rec comp env { Parser.desc; loc } =
   match desc with
-  | List ({ desc = Symbol s; loc = _ } :: args) -> (
+  | List ({ desc = Symbol s; loc } :: args) -> (
       match Env.find s env with
-      | Some (Psyntax f) -> f env args
+      | Some (Psyntax f) -> f ~loc env args
       | Some (Pvar id) -> scheme_apply (Lvar id) (List.map (comp env) args)
-      | Some (Pprim f) -> f (List.map (comp env) args)
-      | None -> Printf.ksprintf failwith "Not found: %s" s)
+      | Some (Pprim f) -> f ~loc (List.map (comp env) args)
+      | None -> prerr_errorf ~loc "%s: not found" s)
   | Int n -> Helpers.intv n
   | List (f :: args) -> scheme_apply (comp env f) (List.map (comp env) args)
-  | List [] -> failwith "missing procedure"
+  | List [] -> prerr_errorf ~loc "missing procedure"
   | Symbol s -> (
       match Env.find s env with
-      | Some (Psyntax _) -> Printf.ksprintf failwith "%s: bad syntax" s
+      | Some (Psyntax _) -> prerr_errorf ~loc "%s: bad syntax" s
       | Some (Pvar id) -> Lvar id
       | Some (Pprim _) -> assert false (* eta-expand *)
-      | None -> Printf.ksprintf failwith "Not found: %s" s)
+      | None -> prerr_errorf ~loc "%s: not found" s)
 
-(* | x -> *)
-(*     Format.eprintf ">>> @[%a@]@." Parser.print_datum x; *)
-(*     assert false *)
-
-let add_prim = function
+let add_prim ~loc = function
   | [ x1; x2 ] ->
       let n1 = Helpers.toint x1 in
       let n2 = Helpers.toint x2 in
       Helpers.unsafe_ofint (Lprim (Paddint, [ n1; n2 ], Loc_unknown))
-  | _ -> failwith "+: bad number of arguments"
+  | _ -> prerr_errorf ~loc "+: bad number of arguments"
 
-let quote_syntax _ = function
+let quote_syntax ~loc _ = function
   | [ x ] ->
       let rec quote { Parser.desc; loc = _ } =
         match desc with
@@ -140,12 +148,12 @@ let quote_syntax _ = function
         | Symbol s -> Lvar (get_sym s)
       in
       quote x
-  | [] -> failwith "quote: not enough arguments"
-  | _ :: _ :: _ -> failwith "quote: too many arguments"
+  | [] -> prerr_errorf ~loc "quote: not enough arguments"
+  | _ :: _ :: _ -> prerr_errorf ~loc "quote: too many arguments"
 
-let if_syntax env = function
+let if_syntax ~loc env = function
   | [ x1; x2; x3 ] -> Helpers.if_ (comp env x1) (comp env x2) (comp env x3)
-  | _ -> failwith "if: bad number of arguments"
+  | _ -> prerr_errorf ~loc "if: bad number of arguments"
 
 let initial_env =
   Env.add_syntax "if" if_syntax
@@ -205,6 +213,6 @@ let process fname =
       [ lam ]
   in
   Format.printf "@[%a@]@." Printlambda.lambda lam;
-  to_bytecode fname lam
+  if !num_errors = 0 then to_bytecode fname lam
 
 let () = Arg.parse [] process ""

@@ -1,6 +1,9 @@
 type desc = List of expr list | Symbol of string | Int of int
 and expr = { desc : desc; loc : Location.t }
 
+let merge_loc { Location.loc_start; _ } { Location.loc_end; _ } =
+  { Location.loc_start; loc_end; loc_ghost = false }
+
 let rec print_expr ppf x =
   match x.desc with
   | List l ->
@@ -12,33 +15,33 @@ let rec print_expr ppf x =
 
 let rec expr toks =
   match toks with
-  | Lexer.LPAREN :: toks ->
+  | { Lexer.desc = LPAREN; loc = loc1 } :: toks ->
       let rec loop accu toks =
         match toks with
-        | Lexer.RPAREN :: toks ->
-            ({ desc = List (List.rev accu); loc = Location.none }, toks)
+        | { Lexer.desc = RPAREN; loc = loc2 } :: toks ->
+            ({ desc = List (List.rev accu); loc = merge_loc loc1 loc2 }, toks)
         | _ ->
             let x, toks = expr toks in
             loop (x :: accu) toks
       in
       loop [] toks
-  | QUOTE :: toks ->
+  | { desc = QUOTE; loc } :: toks ->
       let x, toks = expr toks in
       ( {
-          desc = List [ { desc = Symbol "quote"; loc = Location.none }; x ];
-          loc = Location.none;
+          desc = List [ { desc = Symbol "quote"; loc }; x ];
+          loc = merge_loc loc x.loc;
         },
         toks )
-  | INT s :: toks ->
-      ({ desc = Int (int_of_string s); loc = Location.none }, toks)
-  | SYMBOL s :: toks -> ({ desc = Symbol s; loc = Location.none }, toks)
+  | { desc = INT s; loc } :: toks ->
+      ({ desc = Int (int_of_string s); loc }, toks)
+  | { desc = SYMBOL s; loc } :: toks -> ({ desc = Symbol s; loc }, toks)
   | _ -> failwith "syntax error"
 
 let parse lexbuf =
   let rec loop toks =
     match Lexer.token lexbuf with
-    | Lexer.EOF -> List.rev toks
-    | tok -> loop (tok :: toks)
+    | None -> List.rev toks
+    | Some tok -> loop (tok :: toks)
   in
   let toks = loop [] in
   let x, toks = expr toks in

@@ -1,11 +1,26 @@
 {
-type token =
+type desc =
   | INT of string
-  | EOF
   | LPAREN
   | RPAREN
   | QUOTE
   | SYMBOL of string
+
+type token =
+  {
+    desc : desc;
+    loc : Location.t;
+  }
+
+let lexeme_loc lexbuf =
+  {
+    Location.loc_start = Lexing.lexeme_start_p lexbuf;
+    loc_end = Lexing.lexeme_end_p lexbuf;
+    loc_ghost = false;
+  }
+
+let mk lexbuf desc =
+  Some { desc ; loc = lexeme_loc lexbuf }
 }
 
 rule token = parse
@@ -14,16 +29,16 @@ rule token = parse
 | '\n'
     { Lexing.new_line lexbuf; token lexbuf }
 | '('
-    { LPAREN }
+    { mk lexbuf LPAREN }
 | ')'
-    { RPAREN }
+    { mk lexbuf RPAREN }
 | '\''
-    { QUOTE }
+    { mk lexbuf QUOTE }
 | ['0'-'9']+ as s
-    { INT s }
+    { mk lexbuf (INT s) }
 | ['a'-'z''+']+ as s
-    { SYMBOL s }
+    { mk lexbuf (SYMBOL s) }
 | ';' [^'\n']*
     { token lexbuf }
 | eof
-    { EOF }
+    { None }
