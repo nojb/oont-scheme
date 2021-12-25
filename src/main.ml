@@ -179,18 +179,19 @@ let lapply ap_func ap_args =
       ap_specialised = Default_specialise;
     }
 
-let process fname =
+let parse_file fname =
   let ic = open_in_bin fname in
-  let e =
-    Fun.protect
-      ~finally:(fun () -> close_in_noerr ic)
-      (fun () ->
-        let lexbuf = Lexing.from_channel ic in
-        Location.input_name := fname;
-        Location.init lexbuf fname;
-        Location.input_lexbuf := Some lexbuf;
-        Parser.parse lexbuf)
-  in
+  Fun.protect
+    ~finally:(fun () -> close_in_noerr ic)
+    (fun () ->
+      let lexbuf = Lexing.from_channel ic in
+      Location.input_name := fname;
+      Location.init lexbuf fname;
+      Location.input_lexbuf := Some lexbuf;
+      Parser.parse lexbuf)
+
+let process fname =
+  let e = parse_file fname in
   let lam = comp initial_env e in
   let lam =
     Hashtbl.fold
