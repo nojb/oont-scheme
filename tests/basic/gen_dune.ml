@@ -20,11 +20,14 @@ let print_stanza fn =
 (rule
  (alias %s)
  (action
-  (progn
-   (diff %s.lambda %s.lambda.output)
-   (diff %s.expected %s.output))))
+  (diff %s.lambda %s.lambda.output)))
+
+(rule
+ (alias %s)
+ (action
+  (diff %s.expected %s.output)))
 |}
-    bn bn bn bn bn fn bn bn bn bn bn bn bn
+    bn bn bn bn bn fn bn bn bn bn bn bn bn bn
 
 let () =
   print_endline ";; This file is generated.";

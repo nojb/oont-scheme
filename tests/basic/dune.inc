@@ -16,9 +16,12 @@
 (rule
  (alias quote)
  (action
-  (progn
-   (diff quote.lambda quote.lambda.output)
-   (diff quote.expected quote.output))))
+  (diff quote.lambda quote.lambda.output)))
+
+(rule
+ (alias quote)
+ (action
+  (diff quote.expected quote.output)))
 
 (alias
  (name runtest)
