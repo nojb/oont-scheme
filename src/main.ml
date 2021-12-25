@@ -40,16 +40,9 @@ module Helpers = struct
         Lifthenelse
           ( Lprim (Pisint, [ Lvar id ], Loc_unknown),
             Lifthenelse
-              ( Lprim
-                  ( Pintcomp Ceq,
-                    [
-                      Lprim
-                        (Pandint, [ Lvar id; Lconst (const_int 1) ], Loc_unknown);
-                      Lconst (const_int 0);
-                    ],
-                    Loc_unknown ),
-                unsafe_toint (Lvar id),
-                type_error () ),
+              ( Lprim (Pandint, [ Lvar id; Lconst (const_int 1) ], Loc_unknown),
+                type_error (),
+                unsafe_toint (Lvar id) ),
             type_error () ) )
 
   let apply _ _ = assert false
@@ -143,7 +136,7 @@ let quote_syntax ~loc _ = function
               | x :: xs ->
                   cons
                     (Lprim
-                       ( Pmakeblock (0, Immutable, None),
+                       ( Pmakeblock (0, Mutable, None),
                          [ quote x; cdr ],
                          Loc_unknown ))
                     xs
