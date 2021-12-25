@@ -49,6 +49,8 @@ module Helpers = struct
                 unsafe_toint (Lvar id),
                 type_error () ),
             type_error () ) )
+
+  let apply _ _ = assert false
 end
 
 module Env : sig
@@ -92,7 +94,6 @@ let get_sym s =
       id
   | Some id -> id
 
-let scheme_apply _ _ = assert false
 let num_errors = ref 0
 
 let prerr_errorf ?loc fmt =
@@ -108,11 +109,11 @@ let rec comp env { Parser.desc; loc } =
   | List ({ desc = Symbol s; loc } :: args) -> (
       match Env.find s env with
       | Some (Psyntax f) -> f ~loc env args
-      | Some (Pvar id) -> scheme_apply (Lvar id) (List.map (comp env) args)
+      | Some (Pvar id) -> Helpers.apply (Lvar id) (List.map (comp env) args)
       | Some (Pprim f) -> f ~loc (List.map (comp env) args)
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Int n -> Helpers.intv n
-  | List (f :: args) -> scheme_apply (comp env f) (List.map (comp env) args)
+  | List (f :: args) -> Helpers.apply (comp env f) (List.map (comp env) args)
   | List [] -> prerr_errorf ~loc "missing procedure"
   | Symbol s -> (
       match Env.find s env with
@@ -121,12 +122,15 @@ let rec comp env { Parser.desc; loc } =
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> prerr_errorf ~loc "%s: not found" s)
 
-let add_prim ~loc = function
-  | [ x1; x2 ] ->
-      let n1 = Helpers.toint x1 in
-      let n2 = Helpers.toint x2 in
-      Helpers.unsafe_ofint (Lprim (Paddint, [ n1; n2 ], Loc_unknown))
-  | _ -> prerr_errorf ~loc "+: bad number of arguments"
+let add_prim ~loc:_ = function
+  | [] -> Helpers.intv 0
+  | x :: xs ->
+      Helpers.unsafe_ofint
+        (List.fold_left
+           (fun accu x ->
+             let n = Helpers.toint x in
+             Lprim (Paddint, [ accu; n ], Loc_unknown))
+           (Helpers.toint x) xs)
 
 let quote_syntax ~loc _ = function
   | [ x ] ->
@@ -187,6 +191,9 @@ let process fname =
       ~finally:(fun () -> close_in_noerr ic)
       (fun () ->
         let lexbuf = Lexing.from_channel ic in
+        Location.input_name := fname;
+        Location.init lexbuf fname;
+        Location.input_lexbuf := Some lexbuf;
         Parser.parse lexbuf)
   in
   let lam = comp initial_env e in
