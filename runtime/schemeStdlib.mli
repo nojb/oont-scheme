@@ -1,4 +1,6 @@
-exception Error of string
+type t
 
-val sym : string -> Obj.t
-val print : Obj.t -> unit
+exception Error of string * t list
+
+val sym : string -> t
+val print : t -> unit

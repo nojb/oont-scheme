@@ -7,6 +7,8 @@ module Helpers = struct
   let intv n = Lconst (const_int (n lsl 1))
   let unsafe_toint n = Lprim (Plsrint, [ n; Lconst (const_int 1) ], Loc_unknown)
   let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
+  let stringv s = Lconst (Const_immstring s)
+  let emptylist = Lconst (const_int 0b111)
 
   let if_ x1 x2 x3 =
     Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
@@ -22,7 +24,7 @@ module Helpers = struct
                   ( Pfield 0,
                     [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
                     Loc_unknown );
-                Lconst (Const_immstring "Type error");
+                stringv "Type error";
               ],
               Loc_unknown );
         ],
@@ -136,7 +138,7 @@ let quote_syntax ~loc _ = function
   | [ x ] ->
       let rec quote { Parser.desc; loc = _ } =
         match desc with
-        | List datums ->
+        | List xs ->
             let rec cons cdr = function
               | x :: xs ->
                   cons
@@ -147,7 +149,7 @@ let quote_syntax ~loc _ = function
                     xs
               | [] -> cdr
             in
-            cons (Lconst (const_int 0)) (List.rev datums)
+            cons Helpers.emptylist (List.rev xs)
         | Int n -> Helpers.intv n
         | Symbol s -> Lvar (get_sym s)
       in
