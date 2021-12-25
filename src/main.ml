@@ -139,18 +139,7 @@ let quote_syntax ~loc _ = function
   | [ x ] ->
       let rec quote { Parser.desc; loc = _ } =
         match desc with
-        | List xs ->
-            let rec cons cdr = function
-              | x :: xs ->
-                  cons
-                    (Lprim
-                       ( Pmakeblock (0, Mutable, None),
-                         [ quote x; cdr ],
-                         Loc_unknown ))
-                    xs
-              | [] -> cdr
-            in
-            cons Helpers.emptylist (List.rev xs)
+        | List xs -> Helpers.listv (List.map quote xs)
         | Int n -> Helpers.intv n
         | Symbol s -> Lvar (get_sym s)
       in
