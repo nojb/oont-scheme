@@ -4,7 +4,7 @@ let stdlib = Ident.create_persistent "SchemeStdlib"
 
 module Helpers = struct
   let falsev = Lconst (const_int 1)
-  let int n = Lconst (const_int (n lsl 1))
+  let intv n = Lconst (const_int (n lsl 1))
   let unsafe_toint n = Lprim (Plsrint, [ n; Lconst (const_int 1) ], Loc_unknown)
   let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
 
@@ -99,7 +99,7 @@ let rec comp env e =
       | Some (Pvar id) -> scheme_apply (Lvar id) (List.map (comp env) args)
       | Some (Pprim f) -> f (List.map (comp env) args)
       | None -> Printf.ksprintf failwith "Not found: %s" s)
-  | { desc = Int n } -> Helpers.int n
+  | { desc = Int n } -> Helpers.intv n
   | { desc = List (f :: args) } ->
       scheme_apply (comp env f) (List.map (comp env) args)
   | { desc = List [] } -> failwith "missing procedure"
@@ -136,7 +136,7 @@ let quote_syntax _ = function
               | [] -> cdr
             in
             cons (Lconst (const_int 0)) (List.rev datums)
-        | { desc = Int n } -> Helpers.int n
+        | { desc = Int n } -> Helpers.intv n
         | { desc = Symbol s } -> Lvar (get_sym s)
       in
       quote x
