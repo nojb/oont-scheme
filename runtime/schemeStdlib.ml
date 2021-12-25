@@ -27,11 +27,29 @@ let rec print ppf x =
     else assert false
   else
     match Obj.tag x with
+    | 0 -> print_cons ppf x
+    | 2 -> Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
+    | 4 ->
+        (* Error *)
+        let msg = Obj.obj (Obj.field x 0) in
+        let irritants = Obj.field x 1 in
+        Format.fprintf ppf "Error: %s: %a" msg print_cons irritants
+    | _ -> assert false
+
+and print_cons ppf x =
+  if Obj.is_int x then print ppf x
+  else
+    match Obj.tag x with
     | 0 ->
+        (* cons *)
         let car = Obj.field x 0 in
         let cdr = Obj.field x 1 in
         Format.fprintf ppf "@[<1>(%a .@ %a)@]" print car print cdr
-    | 2 -> Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
-    | _ -> assert false
+    | _ -> print ppf x
+
+let () =
+  Printexc.register_printer (function
+    | Error x -> Some (Format.asprintf "%a" print x)
+    | _ -> None)
 
 let print x = Format.printf "@[%a@]@." print x
