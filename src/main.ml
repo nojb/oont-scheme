@@ -1,5 +1,7 @@
 open Lambda
 
+let dlambda = ref ""
+let stdlib_archive = ref None
 let stdlib_ident = Ident.create_persistent "SchemeStdlib"
 
 module Helpers = struct
@@ -203,15 +205,38 @@ let process_file fname =
       lam (List.rev !symnames)
   in
   let lam = lapply (Helpers.stdlib_prim "print") [ lam ] in
-  Format.printf "@[%a@]@." Printlambda.lambda lam;
+  (match !dlambda with
+  | "" -> ()
+  | fn ->
+      let oc = open_out fn in
+      Fun.protect
+        ~finally:(fun () -> close_out_noerr oc)
+        (fun () ->
+          let ppf = Format.formatter_of_out_channel oc in
+          Format.fprintf ppf "@[%a@]@." Printlambda.lambda lam));
   if !num_errors = 0 then to_bytecode fname lam
 
+let spec =
+  [
+    ("-dlambda", Arg.Set_string dlambda, "<file> Dump IR to <file>");
+    ( "-stdlib",
+      Arg.String (fun fn -> stdlib_archive := Some fn),
+      " Specify stdlib archive" );
+  ]
+
+let fnames = ref []
+
 let () =
-  let libdir =
-    Filename.concat
-      (Filename.dirname (Filename.dirname Sys.executable_name))
-      "lib"
+  Arg.parse (Arg.align spec) (fun fn -> fnames := fn :: !fnames) "";
+  let dir =
+    match !stdlib_archive with
+    | None ->
+        Filename.concat
+          (Filename.concat
+             (Filename.dirname (Filename.dirname Sys.executable_name))
+             "lib")
+          "znscheme_lib"
+    | Some fn -> Filename.dirname fn
   in
-  let dir = Filename.concat (Filename.concat libdir "scmz") "scheme_stdlib" in
   Compmisc.init_path ~dir ();
-  Arg.parse [] process_file ""
+  List.iter process_file (List.rev !fnames)

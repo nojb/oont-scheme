@@ -1,6 +1,7 @@
 (ocamllex lexer)
 
 (executable
- (public_name scmz)
+ (public_name znscheme)
  (name main)
+ (package znscheme)
  (libraries compiler-libs.bytecomp))
