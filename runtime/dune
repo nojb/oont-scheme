@@ -1,0 +1,4 @@
+(library
+ (name scheme_stdlib)
+ (wrapped false)
+ (public_name scmz.scheme_stdlib))

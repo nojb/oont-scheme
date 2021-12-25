@@ -6,6 +6,6 @@ all:
 clean:
 	dune clean
 
-.PHONY: runtime
-runtime:
-	ocamlc -I runtime -c runtime/schemeStdlib.mli runtime/schemeStdlib.ml
+.PHONY: fmt
+fmt:
+	dune build @fmt --auto-promote
