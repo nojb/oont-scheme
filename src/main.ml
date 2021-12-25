@@ -1,6 +1,6 @@
 open Lambda
 
-let stdlib = Ident.create_persistent "SchemeStdlib"
+let stdlib_ident = Ident.create_persistent "SchemeStdlib"
 
 module Helpers = struct
   let falsev = Lconst (const_int 1)
@@ -9,6 +9,7 @@ module Helpers = struct
   let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
   let stringv s = Lconst (Const_immstring s)
   let emptylist = Lconst (const_int 0b111)
+  let stdlib_prim = Lambda.transl_prim "SchemeStdlib"
 
   let if_ x1 x2 x3 =
     Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
@@ -19,13 +20,7 @@ module Helpers = struct
         [
           Lprim
             ( Pmakeblock (0, Immutable, None),
-              [
-                Lprim
-                  ( Pfield 0,
-                    [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
-                    Loc_unknown );
-                stringv "Type error";
-              ],
+              [ stdlib_prim "Error"; stringv "Type error" ],
               Loc_unknown );
         ],
         Loc_unknown )
@@ -71,21 +66,23 @@ end = struct
     | Pvar of Ident.t
     | Pprim of (loc:Location.t -> lambda list -> lambda)
 
-  and t = data Map.t
+  and t = { env : data Map.t }
 
-  let empty = Map.empty
-  let find = Map.find_opt
-  let add_syntax s f t = Map.add s (Psyntax f) t
-  let add_prim s f t = Map.add s (Pprim f) t
+  let empty = { env = Map.empty }
+  let find s t = Map.find_opt s t.env
+  let add_syntax s f t = { env = Map.add s (Psyntax f) t.env }
+  let add_prim s f t = { env = Map.add s (Pprim f) t.env }
 end
 
 let syms = Hashtbl.create 0
+let symnames = ref []
 
 let get_sym s =
   match Hashtbl.find_opt syms s with
   | None ->
       let id = Ident.create_local s in
       Hashtbl.add syms s id;
+      symnames := (s, id) :: !symnames;
       id
   | Some id -> id
 
@@ -166,7 +163,7 @@ let to_bytecode fname lam =
   Simplif.simplify_lambda lam
   |> Bytegen.compile_implementation modname
   |> Emitcode.to_file oc modname cmofile
-       ~required_globals:(Ident.Set.singleton stdlib)
+       ~required_globals:(Ident.Set.singleton stdlib_ident)
 
 let lapply ap_func ap_args =
   Lapply
@@ -194,27 +191,17 @@ let process fname =
   let e = parse_file fname in
   let lam = comp initial_env e in
   let lam =
-    Hashtbl.fold
-      (fun sym id lam ->
+    List.fold_left
+      (fun lam (s, id) ->
         Llet
           ( Strict,
             Pgenval,
             id,
-            lapply
-              (Lprim
-                 ( Pfield 1,
-                   [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ],
-                   Loc_unknown ))
-              [ Lconst (Const_immstring sym) ],
+            lapply (Helpers.stdlib_prim "sym") [ Lconst (Const_immstring s) ],
             lam ))
-      syms lam
+      lam !symnames
   in
-  let lam =
-    lapply
-      (Lprim
-         (Pfield 2, [ Lprim (Pgetglobal stdlib, [], Loc_unknown) ], Loc_unknown))
-      [ lam ]
-  in
+  let lam = lapply (Helpers.stdlib_prim "print") [ lam ] in
   Format.printf "@[%a@]@." Printlambda.lambda lam;
   if !num_errors = 0 then to_bytecode fname lam
 
