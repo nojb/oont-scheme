@@ -123,16 +123,18 @@ let prerr_errorf ?loc fmt =
       Lconst const_unit)
     fmt
 
-let rec comp env { Parser.desc; loc } =
+let rec comp_sexp env { Parser.desc; loc } =
   match desc with
   | List ({ desc = Symbol s; loc } :: args) -> (
       match Env.find s env with
       | Some (Psyntax f) -> f ~loc env args
-      | Some (Pvar id) -> Helpers.apply (Lvar id) (List.map (comp env) args)
-      | Some (Pprim f) -> f ~loc (List.map (comp env) args)
+      | Some (Pvar id) ->
+          Helpers.apply (Lvar id) (List.map (comp_sexp env) args)
+      | Some (Pprim f) -> f ~loc (List.map (comp_sexp env) args)
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Int n -> Helpers.intv n
-  | List (f :: args) -> Helpers.apply (comp env f) (List.map (comp env) args)
+  | List (f :: args) ->
+      Helpers.apply (comp_sexp env f) (List.map (comp_sexp env) args)
   | List [] -> prerr_errorf ~loc "missing procedure"
   | Symbol s -> (
       match Env.find s env with
@@ -144,8 +146,8 @@ let rec comp env { Parser.desc; loc } =
 
 let rec comp_sexp_list env = function
   | [] -> Helpers.undefined
-  | [ sexp ] -> comp env sexp
-  | sexp :: sexps -> Lsequence (comp env sexp, comp_sexp_list env sexps)
+  | [ sexp ] -> comp_sexp env sexp
+  | sexp :: sexps -> Lsequence (comp_sexp env sexp, comp_sexp_list env sexps)
 
 let add_prim ~loc:_ = function
   | [] -> Helpers.intv 0
@@ -171,8 +173,10 @@ let quote_syntax ~loc _ = function
   | _ :: _ :: _ -> prerr_errorf ~loc "quote: too many arguments"
 
 let if_syntax ~loc env = function
-  | [ x1; x2 ] -> Helpers.if_ (comp env x1) (comp env x2) Helpers.undefined
-  | [ x1; x2; x3 ] -> Helpers.if_ (comp env x1) (comp env x2) (comp env x3)
+  | [ x1; x2 ] ->
+      Helpers.if_ (comp_sexp env x1) (comp_sexp env x2) Helpers.undefined
+  | [ x1; x2; x3 ] ->
+      Helpers.if_ (comp_sexp env x1) (comp_sexp env x2) (comp_sexp env x3)
   | _ -> prerr_errorf ~loc "if: bad number of arguments"
 
 let initial_env =
