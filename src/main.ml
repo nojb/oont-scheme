@@ -72,7 +72,7 @@ end
 
 module Env : sig
   type data =
-    | Psyntax of (loc:Location.t -> t -> Parser.expr list -> lambda)
+    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> lambda)
     | Pvar of Ident.t
     | Pprim of (loc:Location.t -> lambda list -> lambda)
 
@@ -82,14 +82,14 @@ module Env : sig
   val find : string -> t -> data option
 
   val add_syntax :
-    string -> (loc:Location.t -> t -> Parser.expr list -> lambda) -> t -> t
+    string -> (loc:Location.t -> t -> Parser.sexp list -> lambda) -> t -> t
 
   val add_prim : string -> (loc:Location.t -> lambda list -> lambda) -> t -> t
 end = struct
   module Map = Map.Make (String)
 
   type data =
-    | Psyntax of (loc:Location.t -> t -> Parser.expr list -> lambda)
+    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> lambda)
     | Pvar of Ident.t
     | Pprim of (loc:Location.t -> lambda list -> lambda)
 
@@ -141,6 +141,11 @@ let rec comp env { Parser.desc; loc } =
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Bool b -> Helpers.boolv b
+
+let rec comp_sexp_list env = function
+  | [] -> Helpers.undefined
+  | [ sexp ] -> comp env sexp
+  | sexp :: sexps -> Lsequence (comp env sexp, comp_sexp_list env sexps)
 
 let add_prim ~loc:_ = function
   | [] -> Helpers.intv 0
@@ -210,11 +215,11 @@ let parse_file fname =
       Location.input_name := fname;
       Location.init lexbuf fname;
       Location.input_lexbuf := Some lexbuf;
-      Parser.parse lexbuf)
+      Parser.parse_sexp_list lexbuf)
 
 let process_file fname =
-  let e = parse_file fname in
-  let lam = comp initial_env e in
+  let sexps = parse_file fname in
+  let lam = comp_sexp_list initial_env sexps in
   let lam =
     List.fold_left
       (fun lam (s, id) ->
