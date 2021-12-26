@@ -2,7 +2,7 @@
   > (+ 1 'a)
   > EOF
 
-  $ znscheme -dlambda err1.scm
+  $ oont -dlambda err1.scm
   (apply (field 2 (global SchemeStdlib!))
     (let (a/3 = (apply (field 1 (global SchemeStdlib!)) #"a"))
       (lsl
@@ -27,8 +27,6 @@
               (makeblock 0 (field 0 (global SchemeStdlib!))
                 (makeblock 4 "Type error" (makemutable 0 a/3 7))))))
         1)))
-
-  $ ocamlc -o err1.exe znscheme_lib.cma err1.cmo
 
   $ ./err1.exe
   Fatal error: exception Error: Type error: (a . ())
