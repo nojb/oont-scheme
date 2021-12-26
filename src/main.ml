@@ -10,13 +10,13 @@ module Helpers = struct
   let falsev = L.int 0b01
   let truev = L.int 0b11
   let intv n = L.int (n lsl 1)
-  let unsafe_toint n = L.lsrint n (L.int 1)
-  let unsafe_ofint n = L.lslint n (L.int 1)
+  let untag_int n = L.lsrint n (L.int 1)
+  let tag_int n = L.lslint n (L.int 1)
   let stringv ~loc s = L.string ~loc s
   let emptylist = L.int 0b111
   let undefined = L.int 0b1111
   let prim name = L.value "Oont" name
-  let boolv b = if b then truev else falsev
+  let tag_bool b = if b then truev else falsev
   let error_exn = lazy (L.extension_constructor "Oont" "Error")
   let cons car cdr = L.makemutable 0 [ car; cdr ]
 
@@ -29,7 +29,7 @@ module Helpers = struct
   let listv xs =
     List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
 
-  let errorv ~loc s objs = L.makeblock 4 [ stringv ~loc s; listv objs ]
+  let errorv ~loc s objs = L.makeblock 5 (L.string ~loc s :: objs)
   let if_ x1 x2 x3 = L.ifthenelse (L.eq x1 falsev) x2 x3
 
   let type_error obj =
@@ -43,7 +43,7 @@ module Helpers = struct
     L.letin lam (fun id ->
         L.ifthenelse
           (checkint (L.var id))
-          (unsafe_toint (L.var id))
+          (untag_int (L.var id))
           (type_error (L.var id)))
 
   let apply _ _ = assert false
@@ -114,7 +114,7 @@ let rec comp_sexp env { Parser.desc; loc } =
       | Some (Pvar id) -> Lvar id
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> prerr_errorf ~loc "%s: not found" s)
-  | Bool b -> Helpers.boolv b
+  | Bool b -> Helpers.tag_bool b
 
 let rec comp_sexp_list env = function
   | [] -> Helpers.undefined
@@ -124,7 +124,7 @@ let rec comp_sexp_list env = function
 let add_prim ~loc:_ = function
   | [] -> Helpers.intv 0
   | x :: xs ->
-      Helpers.unsafe_ofint
+      Helpers.tag_int
         (List.fold_left
            (fun accu x ->
              let n = Helpers.toint x in
@@ -138,7 +138,7 @@ let quote_syntax ~loc _ = function
         | List xs -> Helpers.listv (List.map quote xs)
         | Int n -> Helpers.intv n
         | Symbol s -> get_sym s
-        | Bool b -> Helpers.boolv b
+        | Bool b -> Helpers.tag_bool b
       in
       quote x
   | [] -> prerr_errorf ~loc "quote: not enough arguments"
