@@ -7,3 +7,8 @@
 (rule (copy %{lib:znscheme_lib:schemeStdlib.cmi} schemeStdlib.cmi))
 
 (rule (copy %{lib:znscheme_lib:znscheme_lib.cma} znscheme_lib.cma))
+
+(env
+ (_
+  (env-vars
+   (ZNSCHEMELIB .))))

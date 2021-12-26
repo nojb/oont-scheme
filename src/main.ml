@@ -1,7 +1,6 @@
 open Lambda
 
 let dlambda = ref false
-let libdir = ref None
 let stdlib_ident = Ident.create_persistent "SchemeStdlib"
 
 module Helpers = struct
@@ -218,20 +217,13 @@ let process_file fname =
   if !dlambda then Format.printf "@[%a@]@." Printlambda.lambda lam;
   if !num_errors = 0 then to_bytecode fname lam
 
-let spec =
-  [
-    ("-dlambda", Arg.Set dlambda, " Dump IR");
-    ( "-libdir",
-      Arg.String (fun fn -> libdir := Some fn),
-      " Specify lib directory" );
-  ]
-
+let spec = [ ("-dlambda", Arg.Set dlambda, " Dump IR") ]
 let fnames = ref []
 
 let () =
   Arg.parse (Arg.align spec) (fun fn -> fnames := fn :: !fnames) "";
   let dir =
-    match !libdir with
+    match Sys.getenv_opt "ZNSCHEMELIB" with
     | None ->
         Filename.concat
           (Filename.concat

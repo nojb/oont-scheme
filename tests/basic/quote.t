@@ -2,7 +2,7 @@
   > '(a b c)
   > EOF
 
-  $ znscheme -libdir . -dlambda quote.scm
+  $ znscheme -dlambda quote.scm
   (apply (field 2 (global SchemeStdlib!))
     (let
       (c/5 = (apply (field 1 (global SchemeStdlib!)) #"c")
