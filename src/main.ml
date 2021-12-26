@@ -4,7 +4,7 @@ let drawlambda = ref false
 let dlambda = ref false
 let compile_only = ref false
 let output_name = ref ""
-let stdlib_ident = Ident.create_persistent "SchemeStdlib"
+let stdlib_ident = Ident.create_persistent "Oont"
 
 module Helpers = struct
   let falsev = Lconst (const_int 1)
@@ -14,12 +14,12 @@ module Helpers = struct
   let stringv ~loc s = Lconst (Const_base (Const_string (s, loc, None)))
   let emptylist = Lconst (const_int 0b111)
   let undefined = Lconst (const_int 0b1111)
-  let stdlib_prim = Lambda.transl_prim "SchemeStdlib"
+  let stdlib_prim = Lambda.transl_prim "Oont"
 
   let error_exn =
     lazy
       (let env = Env.add_persistent_structure stdlib_ident Env.empty in
-       let lid = Longident.Ldot (Longident.Lident "SchemeStdlib", "Error") in
+       let lid = Longident.Ldot (Longident.Lident "Oont", "Error") in
        match Env.find_constructor_by_name lid env with
        | { cstr_tag = Cstr_extension (path, _); _ } ->
            transl_extension_path Loc_unknown env path
@@ -243,7 +243,7 @@ let main () =
       (Filename.concat
          (Filename.dirname (Filename.dirname Sys.executable_name))
          "lib")
-      "oontrun"
+      "oont"
   in
   Clflags.include_dirs := libdir :: !Clflags.include_dirs;
   Compmisc.init_path ();
@@ -257,7 +257,7 @@ let main () =
       | s, _ -> s
     in
     Compmisc.init_path ();
-    Bytelink.link ("oontrun.cma" :: obj_names) output_name)
+    Bytelink.link ("oont.cma" :: obj_names) output_name)
 
 let () =
   try main () with exn -> Location.report_exception Format.err_formatter exn

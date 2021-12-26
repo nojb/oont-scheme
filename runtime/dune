@@ -1,4 +1,4 @@
 (library
- (public_name oont.oontrun)
- (name oontrun)
+ (public_name oont)
+ (name oont)
  (wrapped false))

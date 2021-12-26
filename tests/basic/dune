@@ -1,9 +1,9 @@
 (cram
  (deps
   %{bin:oont}
-  schemeStdlib.cmi
-  oontrun.cma))
+  oont.cmi
+  oont.cma))
 
-(rule (copy %{lib:oont.oontrun:schemeStdlib.cmi} schemeStdlib.cmi))
+(rule (copy %{lib:oont:oont.cmi} oont.cmi))
 
-(rule (copy %{lib:oont.oontrun:oontrun.cma} oontrun.cma))
+(rule (copy %{lib:oont:oont.cma} oont.cma))

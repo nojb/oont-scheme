@@ -3,11 +3,11 @@
   > EOF
 
   $ oont -dlambda quote1.scm
-  (apply (field 2 (global SchemeStdlib!))
+  (apply (field 2 (global Oont!))
     (let
-      (c/5 = (apply (field 1 (global SchemeStdlib!)) #"c")
-       b/4 = (apply (field 1 (global SchemeStdlib!)) #"b")
-       a/3 = (apply (field 1 (global SchemeStdlib!)) #"a"))
+      (c/5 = (apply (field 1 (global Oont!)) #"c")
+       b/4 = (apply (field 1 (global Oont!)) #"b")
+       a/3 = (apply (field 1 (global Oont!)) #"a"))
       (makemutable 0 a/3 (makemutable 0 b/4 (makemutable 0 c/5 7)))))
 
   $ ./quote1.exe
@@ -18,6 +18,6 @@
   > EOF
 
   $ oont -dlambda quote2.scm
-  (apply (field 2 (global SchemeStdlib!)) 7)
+  (apply (field 2 (global Oont!)) 7)
   $ ./quote2.exe
   ()
