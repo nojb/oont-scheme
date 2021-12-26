@@ -1,4 +1,3 @@
-open Lambda
 module L = Lambda_helper
 
 let drawlambda = ref false
@@ -35,21 +34,23 @@ module Helpers = struct
          ])
 
   let toint lam =
-    name_lambda Strict lam (fun id ->
-        L.ifthenelse (L.isint (Lvar id))
+    Lambda.name_lambda Strict lam (fun id ->
+        L.ifthenelse
+          (L.isint (L.var id))
           (L.ifthenelse
-             (L.andint (Lvar id) (L.int 1))
-             (type_error (Lvar id)) (unsafe_toint (Lvar id)))
-          (type_error (Lvar id)))
+             (L.andint (L.var id) (L.int 1))
+             (type_error (L.var id))
+             (unsafe_toint (L.var id)))
+          (type_error (L.var id)))
 
   let apply _ _ = assert false
 end
 
 module Env : sig
   type data =
-    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> lambda)
+    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda)
     | Pvar of Ident.t
-    | Pprim of (loc:Location.t -> lambda list -> lambda)
+    | Pprim of (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
 
   and t
 
@@ -57,16 +58,20 @@ module Env : sig
   val find : string -> t -> data option
 
   val add_syntax :
-    string -> (loc:Location.t -> t -> Parser.sexp list -> lambda) -> t -> t
+    string ->
+    (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda) ->
+    t ->
+    t
 
-  val add_prim : string -> (loc:Location.t -> lambda list -> lambda) -> t -> t
+  val add_prim :
+    string -> (loc:Location.t -> Lambda.lambda list -> Lambda.lambda) -> t -> t
 end = struct
   module Map = Map.Make (String)
 
   type data =
-    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> lambda)
+    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda)
     | Pvar of Ident.t
-    | Pprim of (loc:Location.t -> lambda list -> lambda)
+    | Pprim of (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
 
   and t = { env : data Map.t }
 
@@ -84,7 +89,7 @@ let prerr_errorf ?loc fmt =
   Printf.ksprintf
     (fun s ->
       Location.print_report Format.err_formatter (Location.error ?loc s);
-      Lconst const_unit)
+      L.int 0)
     fmt
 
 let rec comp_sexp env { Parser.desc; loc } =
@@ -93,7 +98,7 @@ let rec comp_sexp env { Parser.desc; loc } =
       match Env.find s env with
       | Some (Psyntax f) -> f ~loc env args
       | Some (Pvar id) ->
-          Helpers.apply (Lvar id) (List.map (comp_sexp env) args)
+          Helpers.apply (L.var id) (List.map (comp_sexp env) args)
       | Some (Pprim f) -> f ~loc (List.map (comp_sexp env) args)
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Int n -> Helpers.intv n

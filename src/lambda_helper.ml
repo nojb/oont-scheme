@@ -52,3 +52,5 @@ let apply t ts =
       ap_inlined = Default_inline;
       ap_specialised = Default_specialise;
     }
+
+let var id = Lvar id

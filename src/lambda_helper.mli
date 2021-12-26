@@ -17,3 +17,4 @@ val raise : t -> t
 val string : ?loc:Location.t -> string -> t
 val seq : t -> t -> t
 val apply : t -> t list -> t
+val var : Ident.t -> t
