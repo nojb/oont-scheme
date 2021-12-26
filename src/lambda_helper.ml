@@ -8,6 +8,7 @@ let makemutable tag ts = prim (Pmakeblock (tag, Mutable, None)) ts
 let ifthenelse t1 t2 t3 = Lifthenelse (t1, t2, t3)
 let eq t1 t2 = prim (Pintcomp Ceq) [ t1; t2 ]
 let isint t = prim Pisint [ t ]
+let not t = prim Pnot [ t ]
 let addint t1 t2 = prim Paddint [ t1; t2 ]
 let andint t1 t2 = prim Pandint [ t1; t2 ]
 let lslint t1 t2 = prim Plslint [ t1; t2 ]
@@ -28,11 +29,11 @@ let extension_constructor modname name =
 
 let value modname name = transl_prim modname name
 
-let letin name lam f =
+let letin lam f =
   match lam with
   | Lvar id -> f id
   | _ ->
-      let id = Ident.create_local name in
+      let id = Ident.create_local "let" in
       Llet (Strict, Pgenval, id, lam, f id)
 
 let raise exn = prim (Praise Raise_regular) [ exn ]
@@ -54,3 +55,5 @@ let apply t ts =
     }
 
 let var id = Lvar id
+let sequand t1 t2 = prim Psequand [ t1; t2 ]
+let sequor t1 t2 = prim Psequor [ t1; t2 ]

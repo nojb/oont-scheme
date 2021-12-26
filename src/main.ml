@@ -20,6 +20,12 @@ module Helpers = struct
   let error_exn = lazy (L.extension_constructor "Oont" "Error")
   let cons car cdr = L.makemutable 0 [ car; cdr ]
 
+  let checkint n =
+    L.letin n (fun id ->
+        L.sequand
+          (L.isint (L.var id))
+          (L.eq (L.andint (L.var id) (L.int 1)) (L.int 0)))
+
   let listv xs =
     List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
 
@@ -34,13 +40,10 @@ module Helpers = struct
          ])
 
   let toint lam =
-    Lambda.name_lambda Strict lam (fun id ->
+    L.letin lam (fun id ->
         L.ifthenelse
-          (L.isint (L.var id))
-          (L.ifthenelse
-             (L.andint (L.var id) (L.int 1))
-             (type_error (L.var id))
-             (unsafe_toint (L.var id)))
+          (checkint (L.var id))
+          (unsafe_toint (L.var id))
           (type_error (L.var id)))
 
   let apply _ _ = assert false
