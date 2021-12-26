@@ -7,7 +7,8 @@ let output_name = ref ""
 let stdlib_ident = Ident.create_persistent "Oont"
 
 module Helpers = struct
-  let falsev = Lconst (const_int 1)
+  let falsev = Lconst (const_int 0b01)
+  let truev = Lconst (const_int 0b11)
   let intv n = Lconst (const_int (n lsl 1))
   let unsafe_toint n = Lprim (Plsrint, [ n; Lconst (const_int 1) ], Loc_unknown)
   let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
@@ -15,6 +16,7 @@ module Helpers = struct
   let emptylist = Lconst (const_int 0b111)
   let undefined = Lconst (const_int 0b1111)
   let stdlib_prim = Lambda.transl_prim "Oont"
+  let boolv b = if b then truev else falsev
 
   let error_exn =
     lazy
@@ -138,6 +140,7 @@ let rec comp env { Parser.desc; loc } =
       | Some (Pvar id) -> Lvar id
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> prerr_errorf ~loc "%s: not found" s)
+  | Bool b -> Helpers.boolv b
 
 let add_prim ~loc:_ = function
   | [] -> Helpers.intv 0
@@ -156,6 +159,7 @@ let quote_syntax ~loc _ = function
         | List xs -> Helpers.listv (List.map quote xs)
         | Int n -> Helpers.intv n
         | Symbol s -> Lvar (get_sym s)
+        | Bool b -> Helpers.boolv b
       in
       quote x
   | [] -> prerr_errorf ~loc "quote: not enough arguments"

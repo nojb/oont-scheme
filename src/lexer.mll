@@ -5,6 +5,8 @@ type desc =
   | RPAREN
   | QUOTE
   | SYMBOL of string
+  | FALSE
+  | TRUE
 
 type token =
   {
@@ -34,6 +36,10 @@ rule token = parse
     { mk lexbuf RPAREN }
 | '\''
     { mk lexbuf QUOTE }
+| "#f"
+    { mk lexbuf FALSE }
+| "#t"
+    { mk lexbuf TRUE }
 | ['0'-'9']+ as s
     { mk lexbuf (INT s) }
 | ['a'-'z''+']+ as s

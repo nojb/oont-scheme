@@ -1,4 +1,4 @@
-type desc = List of expr list | Symbol of string | Int of int
+type desc = List of expr list | Symbol of string | Int of int | Bool of bool
 and expr = { desc : desc; loc : Location.t }
 
 let merge_loc { Location.loc_start; _ } { Location.loc_end; _ } =
@@ -12,6 +12,8 @@ let rec print_expr ppf x =
         l
   | Symbol s -> Format.pp_print_string ppf s
   | Int n -> Format.pp_print_int ppf n
+  | Bool true -> Format.pp_print_string ppf "#t"
+  | Bool false -> Format.pp_print_string ppf "#f"
 
 let rec expr toks =
   match toks with
@@ -35,6 +37,8 @@ let rec expr toks =
   | { desc = INT s; loc } :: toks ->
       ({ desc = Int (int_of_string s); loc }, toks)
   | { desc = SYMBOL s; loc } :: toks -> ({ desc = Symbol s; loc }, toks)
+  | { desc = FALSE; loc } :: toks -> ({ desc = Bool false; loc }, toks)
+  | { desc = TRUE; loc } :: toks -> ({ desc = Bool true; loc }, toks)
   | _ -> failwith "syntax error"
 
 let parse lexbuf =

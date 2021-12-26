@@ -17,6 +17,8 @@ let sym name =
   Obj.repr (H.merge symbols (Obj.with_tag 2 (Obj.repr (Some name))))
 
 let emptylist = 0b111
+let falsev = 0b01
+let truev = 0b11
 
 let rec print ppf x =
   if Obj.is_int x then
@@ -24,6 +26,8 @@ let rec print ppf x =
     if x land 1 == 0 then (* int *)
       Format.pp_print_int ppf (x lsr 1)
     else if x == emptylist then Format.pp_print_string ppf "()"
+    else if x == falsev then Format.pp_print_string ppf "#f"
+    else if x == truev then Format.pp_print_string ppf "#t"
     else assert false
   else
     match Obj.tag x with
