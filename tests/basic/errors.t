@@ -30,4 +30,5 @@
 
   $ ./err1.exe
   Fatal error: exception Error: Type error: (a . ())
+  Raised at ?? in file "_none_", line 0, characters -1--1
   [2]
