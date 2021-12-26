@@ -16,7 +16,8 @@ module Helpers = struct
   let emptylist = L.int 0b111
   let undefined = L.int 0b1111
   let prim name = L.value "Oont" name
-  let tag_bool b = if b then truev else falsev
+  let boolv b = if b then truev else falsev
+  let tag_bool x = L.ifthenelse x truev falsev
   let error_exn = lazy (L.extension_constructor "Oont" "Error")
   let cons car cdr = L.makemutable 0 [ car; cdr ]
 
@@ -114,7 +115,7 @@ let rec comp_sexp env { Parser.desc; loc } =
       | Some (Pvar id) -> Lvar id
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> prerr_errorf ~loc "%s: not found" s)
-  | Bool b -> Helpers.tag_bool b
+  | Bool b -> Helpers.boolv b
 
 let rec comp_sexp_list env = function
   | [] -> Helpers.undefined
@@ -131,6 +132,15 @@ let add_prim ~loc:_ = function
              L.addint accu n)
            (Helpers.toint x) xs)
 
+let zerop_prim ~loc = function
+  | [ x ] ->
+      L.letin x (fun id ->
+          let v = L.var id in
+          L.ifthenelse (Helpers.checkint v)
+            (Helpers.tag_bool (L.eq v (L.int 0)))
+            (Helpers.type_error v))
+  | _ -> prerr_errorf ~loc "zero?: bad arguments"
+
 let quote_syntax ~loc _ = function
   | [ x ] ->
       let rec quote { Parser.desc; loc = _ } =
@@ -138,7 +148,7 @@ let quote_syntax ~loc _ = function
         | List xs -> Helpers.listv (List.map quote xs)
         | Int n -> Helpers.intv n
         | Symbol s -> get_sym s
-        | Bool b -> Helpers.tag_bool b
+        | Bool b -> Helpers.boolv b
       in
       quote x
   | [] -> prerr_errorf ~loc "quote: not enough arguments"
@@ -153,7 +163,8 @@ let if_syntax ~loc env = function
 
 let initial_env =
   Env.add_syntax "if" if_syntax
-    (Env.add_syntax "quote" quote_syntax (Env.add_prim "+" add_prim Env.empty))
+    (Env.add_syntax "quote" quote_syntax
+       (Env.add_prim "+" add_prim (Env.add_prim "zero?" zerop_prim Env.empty)))
 
 let to_bytecode ~required_globals fname lam =
   let bname = Filename.remove_extension (Filename.basename fname) in

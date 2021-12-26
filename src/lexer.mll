@@ -42,7 +42,7 @@ rule token = parse
     { mk lexbuf TRUE }
 | ['0'-'9']+ as s
     { mk lexbuf (INT s) }
-| ['a'-'z''+']+ as s
+| ['a'-'z''+''?']+ as s
     { mk lexbuf (SYMBOL s) }
 | ';' [^'\n']*
     { token lexbuf }
