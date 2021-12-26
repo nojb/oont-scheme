@@ -149,14 +149,18 @@ let rec comp_sexp_list env = function
   | [ sexp ] -> comp_sexp env sexp
   | sexp :: sexps -> Lsequence (comp_sexp env sexp, comp_sexp_list env sexps)
 
-let add_prim ~loc:_ = function
+let add_prim ~loc = function
   | [] -> Helpers.intv 0
   | x :: xs ->
       Helpers.unsafe_ofint
         (List.fold_left
            (fun accu x ->
              let n = Helpers.toint x in
-             Lprim (Paddint, [ accu; n ], Loc_unknown))
+             Lprim
+               ( Paddint,
+                 [ accu; n ],
+                 Loc_known
+                   { loc; scopes = Debuginfo.Scoped_location.empty_scopes } ))
            (Helpers.toint x) xs)
 
 let quote_syntax ~loc _ = function
@@ -259,6 +263,7 @@ let main () =
       "oont"
   in
   Clflags.include_dirs := libdir :: !Clflags.include_dirs;
+  Clflags.debug := true;
   Compmisc.init_path ();
   let fnames = List.rev !fnames in
   let obj_names = List.filter_map process_file fnames in

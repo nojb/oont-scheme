@@ -1,5 +1,7 @@
 type t = Obj.t
 
+let () = Printexc.record_backtrace true
+
 exception Error of t
 
 module H = Weak.Make (struct
