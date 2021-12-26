@@ -1,4 +1,5 @@
 open Lambda
+module L = Lambda_helper
 
 let drawlambda = ref false
 let dlambda = ref false
@@ -7,65 +8,39 @@ let output_name = ref ""
 let stdlib_ident = Ident.create_persistent "Oont"
 
 module Helpers = struct
-  let falsev = Lconst (const_int 0b01)
-  let truev = Lconst (const_int 0b11)
-  let intv n = Lconst (const_int (n lsl 1))
-  let unsafe_toint n = Lprim (Plsrint, [ n; Lconst (const_int 1) ], Loc_unknown)
-  let unsafe_ofint n = Lprim (Plslint, [ n; Lconst (const_int 1) ], Loc_unknown)
-  let stringv ~loc s = Lconst (Const_base (Const_string (s, loc, None)))
-  let emptylist = Lconst (const_int 0b111)
-  let undefined = Lconst (const_int 0b1111)
-  let stdlib_prim = Lambda.transl_prim "Oont"
+  let falsev = L.int 0b01
+  let truev = L.int 0b11
+  let intv n = L.int (n lsl 1)
+  let unsafe_toint n = L.lsrint n (L.int 1)
+  let unsafe_ofint n = L.lslint n (L.int 1)
+  let stringv ~loc s = L.string ~loc s
+  let emptylist = L.int 0b111
+  let undefined = L.int 0b1111
+  let prim name = L.value "Oont" name
   let boolv b = if b then truev else falsev
-
-  let error_exn =
-    lazy
-      (let env = Env.add_persistent_structure stdlib_ident Env.empty in
-       let lid = Longident.Ldot (Longident.Lident "Oont", "Error") in
-       match Env.find_constructor_by_name lid env with
-       | { cstr_tag = Cstr_extension (path, _); _ } ->
-           transl_extension_path Loc_unknown env path
-       | _ -> Misc.fatal_error "Error extension not found."
-       | exception Not_found -> Misc.fatal_error "Error extension not found.")
-
-  let cons car cdr =
-    Lprim (Pmakeblock (0, Mutable, None), [ car; cdr ], Loc_unknown)
+  let error_exn = lazy (L.extension_constructor "Oont" "Error")
+  let cons car cdr = L.makemutable 0 [ car; cdr ]
 
   let listv xs =
     List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
 
-  let errorv ~loc s objs =
-    Lprim
-      ( Pmakeblock (4, Immutable, None),
-        [ stringv ~loc s; listv objs ],
-        Loc_unknown )
-
-  let if_ x1 x2 x3 =
-    Lifthenelse (Lprim (Pintcomp Ceq, [ x1; falsev ], Loc_unknown), x2, x3)
+  let errorv ~loc s objs = L.makeblock 4 [ stringv ~loc s; listv objs ]
+  let if_ x1 x2 x3 = L.ifthenelse (L.eq x1 falsev) x2 x3
 
   let type_error obj =
-    Lprim
-      ( Praise Raise_regular,
-        [
-          Lprim
-            ( Pmakeblock (0, Immutable, None),
-              [
-                Lazy.force error_exn;
-                errorv ~loc:Location.none "Type error" [ obj ];
-              ],
-              Loc_unknown );
-        ],
-        Loc_unknown )
+    L.raise
+      (L.makeblock 0
+         [
+           Lazy.force error_exn; errorv ~loc:Location.none "Type error" [ obj ];
+         ])
 
   let toint lam =
     name_lambda Strict lam (fun id ->
-        Lifthenelse
-          ( Lprim (Pisint, [ Lvar id ], Loc_unknown),
-            Lifthenelse
-              ( Lprim (Pandint, [ Lvar id; Lconst (const_int 1) ], Loc_unknown),
-                type_error (Lvar id),
-                unsafe_toint (Lvar id) ),
-            type_error (Lvar id) ))
+        L.ifthenelse (L.isint (Lvar id))
+          (L.ifthenelse
+             (L.andint (Lvar id) (L.int 1))
+             (type_error (Lvar id)) (unsafe_toint (Lvar id)))
+          (type_error (Lvar id)))
 
   let apply _ _ = assert false
 end
@@ -101,18 +76,7 @@ end = struct
   let add_prim s f t = { env = Map.add s (Pprim f) t.env }
 end
 
-let syms = Hashtbl.create 0
-let symnames = ref []
-
-let get_sym s =
-  match Hashtbl.find_opt syms s with
-  | None ->
-      let id = Ident.create_local s in
-      Hashtbl.add syms s id;
-      symnames := (s, id) :: !symnames;
-      id
-  | Some id -> id
-
+let get_sym s = L.apply (Helpers.prim "sym") [ L.string s ]
 let num_errors = ref 0
 
 let prerr_errorf ?loc fmt =
@@ -147,20 +111,16 @@ let rec comp_sexp env { Parser.desc; loc } =
 let rec comp_sexp_list env = function
   | [] -> Helpers.undefined
   | [ sexp ] -> comp_sexp env sexp
-  | sexp :: sexps -> Lsequence (comp_sexp env sexp, comp_sexp_list env sexps)
+  | sexp :: sexps -> L.seq (comp_sexp env sexp) (comp_sexp_list env sexps)
 
-let add_prim ~loc = function
+let add_prim ~loc:_ = function
   | [] -> Helpers.intv 0
   | x :: xs ->
       Helpers.unsafe_ofint
         (List.fold_left
            (fun accu x ->
              let n = Helpers.toint x in
-             Lprim
-               ( Paddint,
-                 [ accu; n ],
-                 Loc_known
-                   { loc; scopes = Debuginfo.Scoped_location.empty_scopes } ))
+             L.addint accu n)
            (Helpers.toint x) xs)
 
 let quote_syntax ~loc _ = function
@@ -169,7 +129,7 @@ let quote_syntax ~loc _ = function
         match desc with
         | List xs -> Helpers.listv (List.map quote xs)
         | Int n -> Helpers.intv n
-        | Symbol s -> Lvar (get_sym s)
+        | Symbol s -> get_sym s
         | Bool b -> Helpers.boolv b
       in
       quote x
@@ -187,32 +147,16 @@ let initial_env =
   Env.add_syntax "if" if_syntax
     (Env.add_syntax "quote" quote_syntax (Env.add_prim "+" add_prim Env.empty))
 
-let to_bytecode fname lam =
+let to_bytecode ~required_globals fname lam =
   let bname = Filename.remove_extension (Filename.basename fname) in
   let modname = String.capitalize_ascii bname in
-  let scofile = Filename.remove_extension fname ^ ".sco" in
-  let lam = Simplif.simplify_lambda lam in
-  if !dlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
+  let cmofile = Filename.remove_extension fname ^ ".cmo" in
   let code = Bytegen.compile_implementation modname lam in
-  let oc = open_out_bin scofile in
+  let oc = open_out_bin cmofile in
   Fun.protect
     ~finally:(fun () -> close_out_noerr oc)
-    (fun () ->
-      Emitcode.to_file oc modname scofile
-        ~required_globals:(Ident.Set.singleton stdlib_ident)
-        code);
-  scofile
-
-let lapply ap_func ap_args =
-  Lapply
-    {
-      ap_func;
-      ap_args;
-      ap_loc = Loc_unknown;
-      ap_tailcall = Default_tailcall;
-      ap_inlined = Default_inline;
-      ap_specialised = Default_specialise;
-    }
+    (fun () -> Emitcode.to_file oc modname cmofile ~required_globals code);
+  cmofile
 
 let parse_file fname =
   let ic = open_in_bin fname in
@@ -228,20 +172,14 @@ let parse_file fname =
 let process_file fname =
   let sexps = parse_file fname in
   let lam = comp_sexp_list initial_env sexps in
-  let lam =
-    List.fold_left
-      (fun lam (s, id) ->
-        Llet
-          ( Strict,
-            Pgenval,
-            id,
-            lapply (Helpers.stdlib_prim "sym") [ Lconst (Const_immstring s) ],
-            lam ))
-      lam (List.rev !symnames)
-  in
-  let lam = lapply (Helpers.stdlib_prim "print") [ lam ] in
+  let lam = L.apply (Helpers.prim "print") [ lam ] in
   if !drawlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
-  if !num_errors = 0 then Some (to_bytecode fname lam) else None
+  if !num_errors = 0 then (
+    let lam = Simplif.simplify_lambda lam in
+    if !dlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
+    let required_globals = Ident.Set.singleton stdlib_ident in
+    Some (to_bytecode ~required_globals fname lam))
+  else None
 
 let spec =
   [

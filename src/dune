@@ -3,5 +3,4 @@
 (executable
  (public_name oont)
  (name main)
- (package oont)
  (libraries compiler-libs.bytecomp))
