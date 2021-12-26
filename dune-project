@@ -2,6 +2,4 @@
 
 (cram enable)
 
-(package (name znscheme))
-
-(package (name znscheme_lib))
+(package (name oont))

@@ -1,14 +1,9 @@
 (cram
  (deps
-  %{bin:znscheme}
+  %{bin:oont}
   schemeStdlib.cmi
-  znscheme_lib.cma))
+  oontrun.cma))
 
-(rule (copy %{lib:znscheme_lib:schemeStdlib.cmi} schemeStdlib.cmi))
+(rule (copy %{lib:oont.oontrun:schemeStdlib.cmi} schemeStdlib.cmi))
 
-(rule (copy %{lib:znscheme_lib:znscheme_lib.cma} znscheme_lib.cma))
-
-(env
- (_
-  (env-vars
-   (ZNSCHEMELIB .))))
+(rule (copy %{lib:oont.oontrun:oontrun.cma} oontrun.cma))

@@ -1,6 +1,9 @@
 open Lambda
 
+let drawlambda = ref false
 let dlambda = ref false
+let compile_only = ref false
+let output_name = ref ""
 let stdlib_ident = Ident.create_persistent "SchemeStdlib"
 
 module Helpers = struct
@@ -170,12 +173,18 @@ let initial_env =
 let to_bytecode fname lam =
   let bname = Filename.remove_extension (Filename.basename fname) in
   let modname = String.capitalize_ascii bname in
-  let cmofile = Filename.remove_extension fname ^ ".cmo" in
-  let oc = open_out_bin cmofile in
-  Simplif.simplify_lambda lam
-  |> Bytegen.compile_implementation modname
-  |> Emitcode.to_file oc modname cmofile
-       ~required_globals:(Ident.Set.singleton stdlib_ident)
+  let scofile = Filename.remove_extension fname ^ ".sco" in
+  let lam = Simplif.simplify_lambda lam in
+  if !dlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
+  let code = Bytegen.compile_implementation modname lam in
+  let oc = open_out_bin scofile in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () ->
+      Emitcode.to_file oc modname scofile
+        ~required_globals:(Ident.Set.singleton stdlib_ident)
+        code);
+  scofile
 
 let lapply ap_func ap_args =
   Lapply
@@ -214,23 +223,41 @@ let process_file fname =
       lam (List.rev !symnames)
   in
   let lam = lapply (Helpers.stdlib_prim "print") [ lam ] in
-  if !dlambda then Format.printf "@[%a@]@." Printlambda.lambda lam;
-  if !num_errors = 0 then to_bytecode fname lam
+  if !drawlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
+  if !num_errors = 0 then Some (to_bytecode fname lam) else None
 
-let spec = [ ("-dlambda", Arg.Set dlambda, " Dump IR") ]
+let spec =
+  [
+    ("-drawlambda", Arg.Set dlambda, " Dump IR (before simplif)");
+    ("-dlambda", Arg.Set dlambda, " Dump IR (after simplif)");
+    ("-c", Arg.Set compile_only, " Only compile, do not link");
+    ("-o", Arg.Set_string output_name, " Set output name");
+  ]
+
 let fnames = ref []
 
-let () =
+let main () =
   Arg.parse (Arg.align spec) (fun fn -> fnames := fn :: !fnames) "";
-  let dir =
-    match Sys.getenv_opt "ZNSCHEMELIB" with
-    | None ->
-        Filename.concat
-          (Filename.concat
-             (Filename.dirname (Filename.dirname Sys.executable_name))
-             "lib")
-          "znscheme_lib"
-    | Some dir -> dir
+  let libdir =
+    Filename.concat
+      (Filename.concat
+         (Filename.dirname (Filename.dirname Sys.executable_name))
+         "lib")
+      "oontrun"
   in
-  Compmisc.init_path ~dir ();
-  List.iter process_file (List.rev !fnames)
+  Clflags.include_dirs := libdir :: !Clflags.include_dirs;
+  Compmisc.init_path ();
+  let fnames = List.rev !fnames in
+  let obj_names = List.filter_map process_file fnames in
+  if !num_errors = 0 && not !compile_only then (
+    let output_name =
+      match (!output_name, fnames) with
+      | "", [ fn ] -> Filename.remove_extension fn ^ ".exe"
+      | "", _ :: _ :: _ -> failwith "Must specify -o"
+      | s, _ -> s
+    in
+    Compmisc.init_path ();
+    Bytelink.link ("oontrun.cma" :: obj_names) output_name)
+
+let () =
+  try main () with exn -> Location.report_exception Format.err_formatter exn

@@ -1,7 +1,7 @@
 (ocamllex lexer)
 
 (executable
- (public_name znscheme)
+ (public_name oont)
  (name main)
- (package znscheme)
+ (package oont)
  (libraries compiler-libs.bytecomp))

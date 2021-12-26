@@ -1,3 +1,4 @@
 (library
- (public_name znscheme_lib)
+ (public_name oont.oontrun)
+ (name oontrun)
  (wrapped false))
