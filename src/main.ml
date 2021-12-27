@@ -47,8 +47,8 @@ module Helpers = struct
         L.seq (checkint v) (untag_int v))
 
   let apply f args =
-    L.letin f (fun f ->
-        let f = L.var f in
+    L.letin f (fun id ->
+        let f = L.var id in
         let doit =
           let arity = L.field f 0 in
           let clos = L.field f 2 in
