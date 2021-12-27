@@ -42,12 +42,24 @@ module Helpers = struct
 
   let toint lam =
     L.letin lam (fun id ->
-        L.ifthenelse
-          (checkint (L.var id))
-          (untag_int (L.var id))
-          (type_error (L.var id)))
+        let v = L.var id in
+        L.ifthenelse (checkint v) (untag_int v) (type_error v))
 
-  let apply _ _ = assert false
+  let apply f args =
+    L.letin f (fun f ->
+        let f = L.var f in
+        let doit =
+          let arity = L.field f 0 in
+          let clos = L.field f 2 in
+          let nargs = if args = [] then 1 else List.length args in
+          L.ifthenelse
+            (L.eq (L.int nargs) arity)
+            (L.apply clos (if args = [] then [ L.int 0 ] else args))
+            (type_error f)
+        in
+        L.seq
+          (L.ifthenelse (L.isint f) (type_error f) (L.int 0))
+          (L.block_switch f [ (4, doit) ] (Some (type_error f))))
 end
 
 module Env : sig
@@ -60,6 +72,7 @@ module Env : sig
 
   val empty : t
   val find : string -> t -> data option
+  val add_var : string -> Ident.t -> t -> t
 
   val add_syntax :
     string ->
@@ -81,6 +94,7 @@ end = struct
 
   let empty = { env = Map.empty }
   let find s t = Map.find_opt s t.env
+  let add_var s id t = { env = Map.add s (Pvar id) t.env }
   let add_syntax s f t = { env = Map.add s (Psyntax f) t.env }
   let add_prim s f t = { env = Map.add s (Pprim f) t.env }
 end
@@ -141,6 +155,29 @@ let zerop_prim ~loc = function
             (Helpers.type_error v))
   | _ -> prerr_errorf ~loc "zero?: bad arguments"
 
+let lambda_syntax ~loc env = function
+  | { Parser.desc = List args; loc = _ } :: body ->
+      let args =
+        List.map
+          (function
+            | { Parser.desc = Symbol arg; _ } -> (arg, Ident.create_local arg)
+            | _ -> assert false)
+          args
+      in
+      let env =
+        List.fold_left (fun env (arg, id) -> Env.add_var arg id env) env args
+      in
+      let args =
+        if args = [] then [ Ident.create_local "arg" ] else List.map snd args
+      in
+      L.makeblock 4
+        [
+          L.int (List.length args);
+          L.string "";
+          L.func args (comp_sexp_list env body);
+        ]
+  | _ -> prerr_errorf ~loc "lambda: bad arguments"
+
 let quote_syntax ~loc _ = function
   | [ x ] ->
       let rec quote { Parser.desc; loc = _ } =
@@ -164,7 +201,9 @@ let if_syntax ~loc env = function
 let initial_env =
   Env.add_syntax "if" if_syntax
     (Env.add_syntax "quote" quote_syntax
-       (Env.add_prim "+" add_prim (Env.add_prim "zero?" zerop_prim Env.empty)))
+       (Env.add_prim "+" add_prim
+          (Env.add_prim "zero?" zerop_prim
+             (Env.add_syntax "lambda" lambda_syntax Env.empty))))
 
 let to_bytecode ~required_globals fname lam =
   let bname = Filename.remove_extension (Filename.basename fname) in

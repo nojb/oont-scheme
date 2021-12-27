@@ -10,6 +10,7 @@ val addint : t -> t -> t
 val andint : t -> t -> t
 val lslint : t -> t -> t
 val lsrint : t -> t -> t
+val field : t -> int -> t
 val int : int -> t
 val extension_constructor : string -> string -> t
 val value : string -> string -> t
@@ -21,3 +22,5 @@ val apply : t -> t list -> t
 val var : Ident.t -> t
 val sequand : t -> t -> t
 val sequor : t -> t -> t
+val func : Ident.t list -> t -> t
+val block_switch : t -> (int * t) list -> t option -> t

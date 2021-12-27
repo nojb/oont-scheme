@@ -13,6 +13,7 @@ let addint t1 t2 = prim Paddint [ t1; t2 ]
 let andint t1 t2 = prim Pandint [ t1; t2 ]
 let lslint t1 t2 = prim Plslint [ t1; t2 ]
 let lsrint t1 t2 = prim Plsrint [ t1; t2 ]
+let field t n = prim (Pfield n) [ t ]
 let int n = Lconst (const_int n)
 
 let extension_constructor modname name =
@@ -57,3 +58,31 @@ let apply t ts =
 let var id = Lvar id
 let sequand t1 t2 = prim Psequand [ t1; t2 ]
 let sequor t1 t2 = prim Psequor [ t1; t2 ]
+
+let func ids t =
+  Lfunction
+    {
+      kind = Curried;
+      params = List.map (fun id -> (id, Pgenval)) ids;
+      return = Pgenval;
+      body = t;
+      attr = default_function_attribute;
+      loc = Loc_unknown;
+    }
+
+let block_switch scrutinee blocks fail =
+  let sw_numblocks =
+    match fail with
+    | Some _ -> Obj.last_non_constant_constructor_tag
+    | None -> List.fold_left (fun accu (tag, _) -> max accu tag) 0 blocks
+  in
+  Lswitch
+    ( scrutinee,
+      {
+        sw_numconsts = 0;
+        sw_consts = [];
+        sw_numblocks;
+        sw_blocks = blocks;
+        sw_failaction = fail;
+      },
+      Loc_unknown )

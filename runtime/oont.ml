@@ -61,6 +61,10 @@ let rec print ppf x =
         let cdr = Obj.field x 1 in
         Format.fprintf ppf "@[<1>(%a .@ %a)@]" print car print cdr
     | 3 -> Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
+    | 4 ->
+        let name = Obj.obj (Obj.field x 1) in
+        if name <> "" then Format.fprintf ppf "#<%s:procedure>" name
+        else Format.pp_print_string ppf "#<procedure>"
     | 5 ->
         (* Error *)
         let n = Obj.size x - 1 in
