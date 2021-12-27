@@ -57,14 +57,20 @@
                           (raise
                             (makeblock 0 (field 0 (global Oont!))
                               (makeblock 5 "Type error" f/7))))))
-                   (if (&& (isint let/9) (== (and let/9 1) 0)) (lsr let/9 1)
+                   (seq
+                     (if (|| (not (isint let/9)) (== (and let/9 1) 1))
+                       (raise
+                         (makeblock 0 (field 0 (global Oont!))
+                           (makeblock 5 "Type error" let/9)))
+                       0)
+                     (lsr let/9 1)))
+                 (seq
+                   (if (|| (not (isint a/8)) (== (and a/8 1) 1))
                      (raise
                        (makeblock 0 (field 0 (global Oont!))
-                         (makeblock 5 "Type error" let/9)))))
-                 (if (&& (isint a/8) (== (and a/8 1) 0)) (lsr a/8 1)
-                   (raise
-                     (makeblock 0 (field 0 (global Oont!))
-                       (makeblock 5 "Type error" a/8)))))
+                         (makeblock 5 "Type error" a/8)))
+                     0)
+                   (lsr a/8 1)))
                1))))
       (seq
         (if (isint let/10)
@@ -80,16 +86,21 @@
                 (function x/3
                   (lsl
                     (+
-                      (if (&& (isint x/3) (== (and x/3 1) 0)) (lsr x/3 1)
-                        (raise
-                          (makeblock 0 (field 0 (global Oont!))
-                            (makeblock 5 "Type error" x/3))))
-                      (let (let/6 = 2)
-                        (if (&& (isint let/6) (== (and let/6 1) 0))
-                          (lsr let/6 1)
+                      (seq
+                        (if (|| (not (isint x/3)) (== (and x/3 1) 1))
                           (raise
                             (makeblock 0 (field 0 (global Oont!))
-                              (makeblock 5 "Type error" let/6))))))
+                              (makeblock 5 "Type error" x/3)))
+                          0)
+                        (lsr x/3 1))
+                      (let (let/6 = 2)
+                        (seq
+                          (if (|| (not (isint let/6)) (== (and let/6 1) 1))
+                            (raise
+                              (makeblock 0 (field 0 (global Oont!))
+                                (makeblock 5 "Type error" let/6)))
+                            0)
+                          (lsr let/6 1))))
                     1)))
               24)
             (raise

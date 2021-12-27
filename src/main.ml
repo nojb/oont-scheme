@@ -20,18 +20,7 @@ module Helpers = struct
   let tag_bool x = L.ifthenelse x truev falsev
   let error_exn = lazy (L.extension_constructor "Oont" "Error")
   let cons car cdr = L.makemutable 0 [ car; cdr ]
-
-  let checkint n =
-    L.letin n (fun id ->
-        L.sequand
-          (L.isint (L.var id))
-          (L.eq (L.andint (L.var id) (L.int 1)) (L.int 0)))
-
-  let listv xs =
-    List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
-
   let errorv ~loc s objs = L.makeblock 5 (L.string ~loc s :: objs)
-  let if_ x1 x2 x3 = L.ifthenelse (L.eq x1 falsev) x2 x3
 
   let type_error obj =
     L.raise
@@ -40,10 +29,22 @@ module Helpers = struct
            Lazy.force error_exn; errorv ~loc:Location.none "Type error" [ obj ];
          ])
 
-  let toint lam =
-    L.letin lam (fun id ->
+  let checkint n =
+    L.letin n (fun id ->
         let v = L.var id in
-        L.ifthenelse (checkint v) (untag_int v) (type_error v))
+        L.ifthenelse
+          (L.sequor (L.not (L.isint v)) (L.eq (L.andint v (L.int 1)) (L.int 1)))
+          (type_error v) (L.int 0))
+
+  let listv xs =
+    List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
+
+  let if_ x1 x2 x3 = L.ifthenelse (L.eq x1 falsev) x2 x3
+
+  let toint x =
+    L.letin x (fun id ->
+        let v = L.var id in
+        L.seq (checkint v) (untag_int v))
 
   let apply f args =
     L.letin f (fun f ->
@@ -150,9 +151,7 @@ let zerop_prim ~loc = function
   | [ x ] ->
       L.letin x (fun id ->
           let v = L.var id in
-          L.ifthenelse (Helpers.checkint v)
-            (Helpers.tag_bool (L.eq v (L.int 0)))
-            (Helpers.type_error v))
+          L.seq (Helpers.checkint v) (Helpers.tag_bool (L.eq v (L.int 0))))
   | _ -> prerr_errorf ~loc "zero?: bad arguments"
 
 let lambda_syntax ~loc env = function
