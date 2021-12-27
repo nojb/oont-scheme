@@ -126,7 +126,7 @@ let rec comp_sexp env { Parser.desc; loc } =
   | Symbol s -> (
       match Env.find s env with
       | Some (Psyntax _) -> prerr_errorf ~loc "%s: bad syntax" s
-      | Some (Pvar id) -> Lvar id
+      | Some (Pvar id) -> L.var id
       | Some (Pprim _) -> assert false (* eta-expand *)
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Bool b -> Helpers.boolv b
