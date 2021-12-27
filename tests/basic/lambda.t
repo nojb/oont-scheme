@@ -113,3 +113,22 @@
 
   $ ./lambda2.exe
   25
+
+  $ cat >lambda3.scm <<EOF
+  > zero?
+  > EOF
+
+  $ oont -dlambda lambda3.scm
+  (apply (field 2 (global Oont!))
+    (makeblock 4 1 "zero?"
+      (function arg/3
+        (seq
+          (if (|| (not (isint arg/3)) (== (and arg/3 1) 1))
+            (raise
+              (makeblock 0 (field 0 (global Oont!))
+                (makeblock 5 "Type error" arg/3)))
+            0)
+          (if (== arg/3 0) 3 1)))))
+
+  $ ./lambda3.exe
+  #<zero?:procedure>

@@ -67,7 +67,7 @@ module Env : sig
   type data =
     | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda)
     | Pvar of Ident.t
-    | Pprim of (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
+    | Pprim of int * (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
 
   and t
 
@@ -82,14 +82,18 @@ module Env : sig
     t
 
   val add_prim :
-    string -> (loc:Location.t -> Lambda.lambda list -> Lambda.lambda) -> t -> t
+    string ->
+    int ->
+    (loc:Location.t -> Lambda.lambda list -> Lambda.lambda) ->
+    t ->
+    t
 end = struct
   module Map = Map.Make (String)
 
   type data =
     | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda)
     | Pvar of Ident.t
-    | Pprim of (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
+    | Pprim of int * (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
 
   and t = { env : data Map.t }
 
@@ -97,7 +101,7 @@ end = struct
   let find s t = Map.find_opt s t.env
   let add_var s id t = { env = Map.add s (Pvar id) t.env }
   let add_syntax s f t = { env = Map.add s (Psyntax f) t.env }
-  let add_prim s f t = { env = Map.add s (Pprim f) t.env }
+  let add_prim s n f t = { env = Map.add s (Pprim (n, f)) t.env }
 end
 
 let get_sym s = L.apply (Helpers.prim "sym") [ L.string s ]
@@ -118,7 +122,7 @@ let rec comp_sexp env { Parser.desc; loc } =
       | Some (Psyntax f) -> f ~loc env args
       | Some (Pvar id) ->
           Helpers.apply (L.var id) (List.map (comp_sexp env) args)
-      | Some (Pprim f) -> f ~loc (List.map (comp_sexp env) args)
+      | Some (Pprim (_, f)) -> f ~loc (List.map (comp_sexp env) args)
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Int n -> Helpers.intv n
   | List (f :: args) ->
@@ -128,7 +132,15 @@ let rec comp_sexp env { Parser.desc; loc } =
       match Env.find s env with
       | Some (Psyntax _) -> prerr_errorf ~loc "%s: bad syntax" s
       | Some (Pvar id) -> L.var id
-      | Some (Pprim _) -> assert false (* eta-expand *)
+      | Some (Pprim (n, f)) ->
+          assert (n >= 0);
+          let args =
+            List.init
+              (if n = 0 then 1 else n)
+              (fun _ -> Ident.create_local "arg")
+          in
+          L.makeblock 4
+            [ L.int n; L.string s; L.func args (f ~loc (List.map L.var args)) ]
       | None -> prerr_errorf ~loc "%s: not found" s)
   | Bool b -> Helpers.boolv b
 
@@ -200,8 +212,8 @@ let if_syntax ~loc env = function
 let initial_env =
   Env.add_syntax "if" if_syntax
     (Env.add_syntax "quote" quote_syntax
-       (Env.add_prim "+" add_prim
-          (Env.add_prim "zero?" zerop_prim
+       (Env.add_prim "+" (-1) add_prim
+          (Env.add_prim "zero?" 1 zerop_prim
              (Env.add_syntax "lambda" lambda_syntax Env.empty))))
 
 let to_bytecode ~required_globals fname lam =
