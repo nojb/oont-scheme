@@ -1,4 +1,5 @@
 module L = Lambda_helper
+module P = Prepare
 
 let drawlambda = ref false
 let dlambda = ref false
@@ -63,47 +64,6 @@ module Helpers = struct
           (L.block_switch f [ (4, doit) ] (Some (type_error f))))
 end
 
-module Env : sig
-  type data =
-    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda)
-    | Pvar of Ident.t
-    | Pprim of int * (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
-
-  and t
-
-  val empty : t
-  val find : string -> t -> data option
-  val add_var : string -> Ident.t -> t -> t
-
-  val add_syntax :
-    string ->
-    (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda) ->
-    t ->
-    t
-
-  val add_prim :
-    string ->
-    int ->
-    (loc:Location.t -> Lambda.lambda list -> Lambda.lambda) ->
-    t ->
-    t
-end = struct
-  module Map = Map.Make (String)
-
-  type data =
-    | Psyntax of (loc:Location.t -> t -> Parser.sexp list -> Lambda.lambda)
-    | Pvar of Ident.t
-    | Pprim of int * (loc:Location.t -> Lambda.lambda list -> Lambda.lambda)
-
-  and t = { env : data Map.t }
-
-  let empty = { env = Map.empty }
-  let find s t = Map.find_opt s t.env
-  let add_var s id t = { env = Map.add s (Pvar id) t.env }
-  let add_syntax s f t = { env = Map.add s (Psyntax f) t.env }
-  let add_prim s n f t = { env = Map.add s (Pprim (n, f)) t.env }
-end
-
 let get_sym s = L.apply (Helpers.prim "sym") [ L.string s ]
 let num_errors = ref 0
 
@@ -115,106 +75,47 @@ let prerr_errorf ?loc fmt =
       L.int 0)
     fmt
 
-let rec comp_sexp env { Parser.desc; loc } =
-  match desc with
-  | List ({ desc = Symbol s; loc } :: args) -> (
-      match Env.find s env with
-      | Some (Psyntax f) -> f ~loc env args
-      | Some (Pvar id) ->
-          Helpers.apply (L.var id) (List.map (comp_sexp env) args)
-      | Some (Pprim (_, f)) -> f ~loc (List.map (comp_sexp env) args)
-      | None -> prerr_errorf ~loc "%s: not found" s)
-  | Int n -> Helpers.intv n
-  | List (f :: args) ->
-      Helpers.apply (comp_sexp env f) (List.map (comp_sexp env) args)
-  | List [] -> prerr_errorf ~loc "missing procedure"
-  | Symbol s -> (
-      match Env.find s env with
-      | Some (Psyntax _) -> prerr_errorf ~loc "%s: bad syntax" s
-      | Some (Pvar id) -> L.var id
-      | Some (Pprim (n, f)) ->
-          assert (n >= 0);
-          let args =
-            List.init
-              (if n = 0 then 1 else n)
-              (fun _ -> Ident.create_local "arg")
-          in
-          L.makeblock 4
-            [ L.int n; L.string s; L.func args (f ~loc (List.map L.var args)) ]
-      | None -> prerr_errorf ~loc "%s: not found" s)
-  | Bool b -> Helpers.boolv b
-
-let rec comp_sexp_list env = function
-  | [] -> Helpers.undefined
-  | [ sexp ] -> comp_sexp env sexp
-  | sexp :: sexps -> L.seq (comp_sexp env sexp) (comp_sexp_list env sexps)
-
-let add_prim ~loc:_ = function
-  | [] -> Helpers.intv 0
-  | x :: xs ->
+let comp_primitive p args =
+  match (p, args) with
+  | P.Pzerop, [ x ] ->
+      L.letin x (fun id ->
+          let v = L.var id in
+          L.seq (Helpers.checkint v) (Helpers.tag_bool (L.eq v (L.int 0))))
+  | Paddint, [] -> Helpers.intv 0
+  | Paddint, x :: xs ->
       Helpers.tag_int
         (List.fold_left
            (fun accu x ->
              let n = Helpers.toint x in
              L.addint accu n)
            (Helpers.toint x) xs)
+  | Pcons, [ car; cdr ] -> Helpers.cons car cdr
+  | Psym s, [] -> get_sym s
+  | _ -> invalid_arg "comp_primitive"
 
-let zerop_prim ~loc = function
-  | [ x ] ->
-      L.letin x (fun id ->
-          let v = L.var id in
-          L.seq (Helpers.checkint v) (Helpers.tag_bool (L.eq v (L.int 0))))
-  | _ -> prerr_errorf ~loc "zero?: bad arguments"
-
-let lambda_syntax ~loc env = function
-  | { Parser.desc = List args; loc = _ } :: body ->
-      let args =
-        List.map
-          (function
-            | { Parser.desc = Symbol arg; _ } -> (arg, Ident.create_local arg)
-            | _ -> assert false)
-          args
+let rec comp_expr { P.desc; loc = _ } =
+  match desc with
+  | Const (Const_int n) -> Helpers.intv n
+  | Const (Const_bool b) -> Helpers.boolv b
+  | Const Const_emptylist -> Helpers.emptylist
+  | Apply (f, args) -> Helpers.apply (comp_expr f) (List.map comp_expr args)
+  | Var { txt; _ } -> Lvar txt
+  | If (e1, e2, e3) ->
+      let e3 =
+        match e3 with None -> Helpers.undefined | Some e3 -> comp_expr e3
       in
-      let env =
-        List.fold_left (fun env (arg, id) -> Env.add_var arg id env) env args
-      in
+      Helpers.if_ (comp_expr e1) (comp_expr e2) e3
+  | Prim (p, args) -> comp_primitive p (List.map comp_expr args)
+  | Lambda (args, _extra, body) ->
       let args =
-        if args = [] then [ Ident.create_local "arg" ] else List.map snd args
+        if args = [] then [ Ident.create_local "dummy" ]
+        else List.map (fun { Location.txt; _ } -> txt) args
       in
       L.makeblock 4
-        [
-          L.int (List.length args);
-          L.string "";
-          L.func args (comp_sexp_list env body);
-        ]
-  | _ -> prerr_errorf ~loc "lambda: bad arguments"
-
-let quote_syntax ~loc _ = function
-  | [ x ] ->
-      let rec quote { Parser.desc; loc = _ } =
-        match desc with
-        | List xs -> Helpers.listv (List.map quote xs)
-        | Int n -> Helpers.intv n
-        | Symbol s -> get_sym s
-        | Bool b -> Helpers.boolv b
-      in
-      quote x
-  | [] -> prerr_errorf ~loc "quote: not enough arguments"
-  | _ :: _ :: _ -> prerr_errorf ~loc "quote: too many arguments"
-
-let if_syntax ~loc env = function
-  | [ x1; x2 ] ->
-      Helpers.if_ (comp_sexp env x1) (comp_sexp env x2) Helpers.undefined
-  | [ x1; x2; x3 ] ->
-      Helpers.if_ (comp_sexp env x1) (comp_sexp env x2) (comp_sexp env x3)
-  | _ -> prerr_errorf ~loc "if: bad number of arguments"
-
-let initial_env =
-  Env.add_syntax "if" if_syntax
-    (Env.add_syntax "quote" quote_syntax
-       (Env.add_prim "+" (-1) add_prim
-          (Env.add_prim "zero?" 1 zerop_prim
-             (Env.add_syntax "lambda" lambda_syntax Env.empty))))
+        [ L.int (List.length args); L.string ""; L.func args (comp_expr body) ]
+  | Begin [] -> Helpers.undefined
+  | Begin (e :: es) ->
+      List.fold_left (fun accu e -> L.seq accu (comp_expr e)) (comp_expr e) es
 
 let to_bytecode ~required_globals fname lam =
   let bname = Filename.remove_extension (Filename.basename fname) in
@@ -240,7 +141,8 @@ let parse_file fname =
 
 let process_file fname =
   let sexps = parse_file fname in
-  let lam = comp_sexp_list initial_env sexps in
+  let e = P.parse_expr_list P.initial_env sexps in
+  let lam = comp_expr e in
   let lam = L.apply (Helpers.prim "print") [ lam ] in
   if !drawlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
   if !num_errors = 0 then (
