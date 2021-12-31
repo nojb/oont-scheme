@@ -8,7 +8,7 @@ let output_name = ref ""
 let stdlib_ident = Ident.create_persistent "Oont"
 let num_errors = ref 0
 
-let prerr_errorf ?loc fmt =
+let _prerr_errorf ?loc fmt =
   incr num_errors;
   Printf.ksprintf
     (fun s ->

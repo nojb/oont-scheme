@@ -22,6 +22,8 @@ and expr_desc =
 
 and expr = { desc : expr_desc; loc : Location.t }
 
+type env = binding Env.t
+
 let prim ~loc p args = { desc = Prim (p, args); loc }
 let cons ~loc car cdr = prim ~loc Pcons [ car; cdr ]
 let const ~loc c = { desc = Const c; loc }
@@ -38,8 +40,6 @@ let arity_of_primitive = function
   | Paddint -> Variadic 0
   | Papply -> Fixed 2
   | Pzerop -> Fixed 1
-
-let eta_expand = function _ -> assert false
 
 let rec parse_expr env { Parser.desc; loc } =
   match desc with
