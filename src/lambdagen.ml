@@ -6,7 +6,8 @@ let truev = L.int 0b11
 let intv n = L.int (n lsl 1)
 let untag_int n = L.lsrint n (L.int 1)
 let tag_int n = L.lslint n (L.int 1)
-let stringv ~loc s = L.string ~loc s
+
+(* let stringv ~loc s = L.string ~loc s *)
 let emptylist = L.int 0b111
 let undefined = L.int 0b1111
 let prim name = L.value "Oont" name
@@ -28,7 +29,7 @@ let checkint n =
         (L.sequor (L.not (L.isint v)) (L.eq (L.andint v (L.int 1)) (L.int 1)))
         (type_error v) (L.int 0))
 
-let listv xs = List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs)
+(* let listv xs = List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs) *)
 let if_ x1 x2 x3 = L.ifthenelse (L.eq x1 falsev) x2 x3
 
 let toint x =
