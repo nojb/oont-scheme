@@ -4,6 +4,9 @@ type desc =
   | Lparen
   | Rparen
   | Quote
+  | Quasiquote
+  | Unquote
+  | Unquote_splicing
   | Atom of string
   | False
   | True
@@ -36,6 +39,12 @@ rule token = parse
     { mk lexbuf Rparen }
 | '\''
     { mk lexbuf Quote }
+| '`'
+    { mk lexbuf Quasiquote }
+| ','
+    { mk lexbuf Unquote }
+| ",@"
+    { mk lexbuf Unquote_splicing }
 | "#f"
     { mk lexbuf False }
 | "#t"

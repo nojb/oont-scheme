@@ -290,10 +290,35 @@ let cond_syntax ~loc:_ env clauses =
   in
   aux clauses
 
+let quasiquote_syntax ~loc:_ env = function
+  | [ x ] ->
+      let rec qq n x =
+        let loc = x.Parser.loc in
+        match x.Parser.desc with
+        | List [ { desc = Atom "unquote"; loc = loc_comma }; x ] ->
+            if n = 0 then parse_expr env x
+            else prim ~loc Pcons [ sym ~loc:loc_comma "unquote"; qq (n - 1) x ]
+        | List [ { desc = Atom "unquote-splicing"; loc = _ }; _x ] ->
+            assert false
+        | List xs ->
+            List.fold_left
+              (fun cdr x ->
+                let loc = merge_loc x.Parser.loc cdr.loc in
+                cons ~loc (qq n x) cdr)
+              (const ~loc:Location.none Const_emptylist)
+              xs
+        | Atom s -> sym ~loc s
+        | Bool b -> const ~loc (Const_bool b)
+        | Int n -> const ~loc (Const_int n)
+      in
+      qq 0 x
+  | _ -> failwith "quasiquote: bad syntax"
+
 let initial_env =
   let bindings =
     [
       ("quote", Esyntax quote_syntax);
+      ("quasiquote", Esyntax quasiquote_syntax);
       ("and", Esyntax and_syntax);
       ("or", Esyntax or_syntax);
       ("when", Esyntax when_syntax);

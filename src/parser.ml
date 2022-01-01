@@ -34,6 +34,27 @@ let rec parse_sexp toks =
           loc = merge_loc loc x.loc;
         },
         toks )
+  | { desc = Quasiquote; loc } :: toks ->
+      let x, toks = parse_sexp toks in
+      ( {
+          desc = List [ { desc = Atom "quasiquote"; loc }; x ];
+          loc = merge_loc loc x.loc;
+        },
+        toks )
+  | { desc = Unquote; loc } :: toks ->
+      let x, toks = parse_sexp toks in
+      ( {
+          desc = List [ { desc = Atom "unquote"; loc }; x ];
+          loc = merge_loc loc x.loc;
+        },
+        toks )
+  | { desc = Unquote_splicing; loc } :: toks ->
+      let x, toks = parse_sexp toks in
+      ( {
+          desc = List [ { desc = Atom "unquote-splicing"; loc }; x ];
+          loc = merge_loc loc x.loc;
+        },
+        toks )
   | { desc = Int s; loc } :: toks ->
       ({ desc = Int (int_of_string s); loc }, toks)
   | { desc = Atom s; loc } :: toks -> ({ desc = Atom s; loc }, toks)
