@@ -16,6 +16,7 @@ type constant =
   | Const_int of int
   | Const_emptylist
   | Const_undefined
+  | Const_string of string
 
 type expr_desc =
   | Const of constant

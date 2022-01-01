@@ -46,14 +46,14 @@ let emptylist = msb lor 0b100
 let falsev = msb
 let truev = msb lor 1
 
-let rec print ppf x =
+let rec write_simple oc x =
   if Obj.is_int x then
     let x = Obj.obj x in
     if x land msb = 0 then (* int *)
-      Format.pp_print_int ppf x
-    else if x = emptylist then Format.pp_print_string ppf "()"
-    else if x = falsev then Format.pp_print_string ppf "#f"
-    else if x = truev then Format.pp_print_string ppf "#t"
+      output_string oc (string_of_int x)
+    else if x = emptylist then output_string oc "()"
+    else if x = falsev then output_string oc "#f"
+    else if x = truev then output_string oc "#t"
     else assert false
   else
     match Obj.tag x with
@@ -61,40 +61,40 @@ let rec print ppf x =
         (* cons *)
         let car = Obj.field x 0 in
         let cdr = Obj.field x 1 in
-        Format.fprintf ppf "@[<1>(%a .@ %a)@]" print car print cdr
+        Printf.fprintf oc "(%a . %a)" write_simple car write_simple cdr
     | 1 ->
         (* vector *)
-        let print ppf x =
+        let aux oc x =
           for i = 0 to Obj.size x - 1 do
-            if i > 0 then Format.pp_print_space ppf ();
-            print ppf (Obj.field x i)
+            if i > 0 then output_char oc ' ';
+            write_simple oc (Obj.field x i)
           done
         in
-        Format.fprintf ppf "@[<2>#(%a)@]" print x
+        Printf.fprintf oc "#(%a)" aux x
     | 3 ->
         (* symbol *)
-        Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
+        output_string oc (Obj.obj (Obj.field x 0))
     | 4 ->
         (* procedure *)
         let name = Obj.obj (Obj.field x 1) in
-        if name <> "" then Format.fprintf ppf "#<%s:procedure>" name
-        else Format.pp_print_string ppf "#<procedure>"
+        if name <> "" then Printf.fprintf oc "#<%s:procedure>" name
+        else output_string oc "#<procedure>"
     | 5 ->
         (* error *)
         let n = Obj.size x - 1 in
         let msg = Obj.obj (Obj.field x 0) in
-        Format.fprintf ppf "Error: %s:" msg;
+        Printf.fprintf oc "Error: %s:" msg;
         for i = 1 to n do
-          Format.fprintf ppf "@ %a" print (Obj.field x i)
+          Printf.fprintf oc " %a" write_simple (Obj.field x i)
         done
     | _ -> assert false
 
-let () =
-  Printexc.register_printer (function
-    | Error x -> Some (Format.asprintf "%a" print x)
-    | _ -> None)
+(* let () = *)
+(*   Printexc.register_printer (function *)
+(*     | Error x -> Some (Format.asprintf "%a" write_simple x) *)
+(*     | _ -> None) *)
 
-let print x = Format.printf "@[%a@]@." print x
+let print x = write_simple stdout x
 let null = Obj.repr emptylist
 let is_null obj = obj = null
 let is_pair obj = Obj.is_block obj && Obj.tag obj = 0

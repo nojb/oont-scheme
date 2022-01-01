@@ -7,8 +7,7 @@ let truev = L.int (msb lor 1)
 let intv n = L.int (n land lnot msb)
 let untag_int n = n
 let tag_int n = L.andint n (L.int (lnot msb))
-
-(* let stringv ~loc s = L.string ~loc s *)
+let stringv ~loc s = L.makeblock 2 [ L.string ~loc s ]
 let emptylist = L.int (msb lor 0b100)
 let undefined = L.int (msb lor 0b110)
 let prim name = L.value "Oont" name
@@ -108,12 +107,13 @@ type env = { vars : Ident.t Map.t; assigned_vars : Set.t }
 
 let add_var id id1 env = { env with vars = Map.add id id1 env.vars }
 
-let rec comp_expr env { P.desc; loc = _ } =
+let rec comp_expr env { P.desc; loc } =
   match desc with
   | Const (Const_int n) -> intv n
   | Const (Const_bool b) -> boolv b
   | Const Const_emptylist -> emptylist
   | Const Const_undefined -> undefined
+  | Const (Const_string s) -> stringv ~loc s
   | Apply (f, args) -> apply (comp_expr env f) (List.map (comp_expr env) args)
   | Var id ->
       let var = L.var (Map.find id.txt env.vars) in

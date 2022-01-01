@@ -20,6 +20,7 @@ type constant =
   | Const_int of int
   | Const_emptylist
   | Const_undefined
+  | Const_string of string
 
 type binding =
   | Evar of Ident.t
@@ -70,6 +71,7 @@ let rec parse_expr env { Parser.desc; loc } =
   match desc with
   | Bool b -> const ~loc (Const_bool b)
   | Int n -> const ~loc (Const_int n)
+  | String s -> const ~loc (Const_string s)
   | Vector sexpl -> prim ~loc Pvector (List.map (parse_expr env) sexpl)
   | Atom s -> (
       match Env.find_opt s env with
@@ -149,6 +151,7 @@ let quote_syntax ~loc:_ _env = function
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
         | Vector sexpl -> prim ~loc Pvector (List.map quote sexpl)
+        | String s -> const ~loc (Const_string s)
       in
       quote x
   | _ -> failwith "quote: bad syntax"
@@ -360,9 +363,20 @@ let quasiquote_syntax ~loc:_ env = function
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
         | Int n -> const ~loc (Const_int n)
+        | String s -> const ~loc (Const_string s)
       in
       qq 0 x
   | _ -> failwith "quasiquote: bad syntax"
+
+let include_syntax ~loc:_ _env args =
+  let _filenames =
+    List.map
+      (function
+        | { Parser.desc = String s; loc } -> Location.mkloc s loc
+        | _ -> failwith "include: bad syntax")
+      args
+  in
+  assert false
 
 let initial_env =
   let bindings =
@@ -382,6 +396,7 @@ let initial_env =
       ("zero?", Eprim Pzerop);
       ("eq?", Eprim Peq);
       ("eqv?", Eprim Peq);
+      ("include", Esyntax include_syntax);
     ]
   in
   List.fold_left

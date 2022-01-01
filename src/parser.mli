@@ -4,6 +4,7 @@ type desc =
   | Int of int
   | Bool of bool
   | Vector of sexp list
+  | String of string
 
 and sexp = { desc : desc; loc : Location.t }
 

@@ -1,16 +1,17 @@
 {
 type desc =
-  | Int of string
-  | Lparen
+  | INT of string
+  | LPAREN
   | HASHLPAREN
-  | Rparen
-  | Quote
-  | Quasiquote
-  | Unquote
-  | Unquote_splicing
-  | Atom of string
-  | False
-  | True
+  | RPAREN
+  | QUOTE
+  | BACKQUOTE
+  | COMMA
+  | COMMAAT
+  | ATOM of string
+  | FALSE
+  | TRUE
+  | STRING of string
 
 type token =
   {
@@ -26,7 +27,7 @@ let lexeme_loc lexbuf =
   }
 
 let mk lexbuf desc =
-  Some { desc ; loc = lexeme_loc lexbuf }
+  { desc; loc = lexeme_loc lexbuf }
 }
 
 rule token = parse
@@ -35,33 +36,41 @@ rule token = parse
 | '\n'
     { Lexing.new_line lexbuf; token lexbuf }
 | '('
-    { mk lexbuf Lparen }
+    { mk lexbuf LPAREN }
 | ')'
-    { mk lexbuf Rparen }
+    { mk lexbuf RPAREN }
 | "#("
     { mk lexbuf HASHLPAREN }
 | '\''
-    { mk lexbuf Quote }
+    { mk lexbuf QUOTE }
 | '`'
-    { mk lexbuf Quasiquote }
+    { mk lexbuf BACKQUOTE }
 | ','
-    { mk lexbuf Unquote }
+    { mk lexbuf COMMA }
 | ",@"
-    { mk lexbuf Unquote_splicing }
+    { mk lexbuf COMMAAT }
 | "#f"
-    { mk lexbuf False }
+    { mk lexbuf FALSE }
 | "#t"
-    { mk lexbuf True }
+    { mk lexbuf TRUE }
 | ['0'-'9']+ as s
-    { mk lexbuf (Int s) }
+    { mk lexbuf (INT s) }
 | ['a'-'z''+''?''!']+ as s
-    { mk lexbuf (Atom s) }
+    { mk lexbuf (ATOM s) }
 | ';' [^'\n']*
     { token lexbuf }
 | "#|"
     { comment 0 lexbuf }
+| '"'
+    { let buf = Buffer.create 0 in string buf lexbuf }
 | eof
-    { None }
+    { raise End_of_file }
+
+and string buf = parse
+| '"'
+    { { desc = STRING (Buffer.contents buf); loc = Location.none } }
+| _ as c
+    { Buffer.add_char buf c; string buf lexbuf }
 
 and comment n = parse
 | "|#"
