@@ -4,25 +4,29 @@
 
   $ oont -dlambda arith1.scm
   (apply (field 2 (global Oont!))
-    (lsl
+    (and
       (+
-        (let (let/3 = 4)
+        (let (let/3 = 2)
           (seq
-            (if (|| (not (isint let/3)) (== (and let/3 1) 1))
+            (if
+              (|| (not (isint let/3))
+                (== (and let/3 -4611686018427387904) -4611686018427387904))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/3)))
               0)
-            (lsr let/3 1)))
-        (let (let/6 = 6)
+            let/3))
+        (let (let/6 = 3)
           (seq
-            (if (|| (not (isint let/6)) (== (and let/6 1) 1))
+            (if
+              (|| (not (isint let/6))
+                (== (and let/6 -4611686018427387904) -4611686018427387904))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/6)))
               0)
-            (lsr let/6 1))))
-      1))
+            let/6)))
+      4611686018427387903))
 
   $ ./arith1.exe
   5
@@ -33,14 +37,16 @@
 
   $ oont -dlambda arith2.scm
   (apply (field 2 (global Oont!))
-    (let (let/3 = 68)
+    (let (let/3 = 34)
       (seq
-        (if (|| (not (isint let/3)) (== (and let/3 1) 1))
+        (if
+          (|| (not (isint let/3))
+            (== (and let/3 -4611686018427387904) -4611686018427387904))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 5 "Type error" let/3)))
           0)
-        (if (== let/3 0) 3 1))))
+        (if (== let/3 0) -4611686018427387903 -4611686018427387904))))
 
   $ ./arith2.exe
   #f
@@ -53,32 +59,38 @@
   (apply (field 2 (global Oont!))
     (let
       (let/7 =
-         (lsl
+         (and
            (+
-             (let (let/3 = 2)
+             (let (let/3 = 1)
                (seq
-                 (if (|| (not (isint let/3)) (== (and let/3 1) 1))
+                 (if
+                   (|| (not (isint let/3))
+                     (== (and let/3 -4611686018427387904) -4611686018427387904))
                    (raise
                      (makeblock 0 (field 0 (global Oont!))
                        (makeblock 5 "Type error" let/3)))
                    0)
-                 (lsr let/3 1)))
-             (let (let/6 = 4)
+                 let/3))
+             (let (let/6 = 2)
                (seq
-                 (if (|| (not (isint let/6)) (== (and let/6 1) 1))
+                 (if
+                   (|| (not (isint let/6))
+                     (== (and let/6 -4611686018427387904) -4611686018427387904))
                    (raise
                      (makeblock 0 (field 0 (global Oont!))
                        (makeblock 5 "Type error" let/6)))
                    0)
-                 (lsr let/6 1))))
-           1))
+                 let/6)))
+           4611686018427387903))
       (seq
-        (if (|| (not (isint let/7)) (== (and let/7 1) 1))
+        (if
+          (|| (not (isint let/7))
+            (== (and let/7 -4611686018427387904) -4611686018427387904))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 5 "Type error" let/7)))
           0)
-        (if (== let/7 0) 3 1))))
+        (if (== let/7 0) -4611686018427387903 -4611686018427387904))))
 
   $ ./arith3.exe
   #f
@@ -91,12 +103,14 @@
   (apply (field 2 (global Oont!))
     (let (let/3 = 0)
       (seq
-        (if (|| (not (isint let/3)) (== (and let/3 1) 1))
+        (if
+          (|| (not (isint let/3))
+            (== (and let/3 -4611686018427387904) -4611686018427387904))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 5 "Type error" let/3)))
           0)
-        (if (== let/3 0) 3 1))))
+        (if (== let/3 0) -4611686018427387903 -4611686018427387904))))
 
   $ ./arith4.exe
   #t

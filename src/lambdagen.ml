@@ -1,15 +1,16 @@
 module P = Prepare
 module L = Lambda_helper
 
-let falsev = L.int 0b01
-let truev = L.int 0b11
-let intv n = L.int (n lsl 1)
-let untag_int n = L.lsrint n (L.int 1)
-let tag_int n = L.lslint n (L.int 1)
+let msb = 1 lsl (Sys.word_size - 2)
+let falsev = L.int msb
+let truev = L.int (msb lor 1)
+let intv n = L.int (n land lnot msb)
+let untag_int n = n
+let tag_int n = L.andint n (L.int (lnot msb))
 
 (* let stringv ~loc s = L.string ~loc s *)
-let emptylist = L.int 0b111
-let undefined = L.int 0b1111
+let emptylist = L.int (msb lor 0b100)
+let undefined = L.int (msb lor 0b110)
 let prim name = L.value "Oont" name
 let boolv b = if b then truev else falsev
 let tag_bool x = L.ifthenelse x truev falsev
@@ -26,7 +27,9 @@ let checkint n =
   L.letin n (fun id ->
       let v = L.var id in
       L.ifthenelse
-        (L.sequor (L.not (L.isint v)) (L.eq (L.andint v (L.int 1)) (L.int 1)))
+        (L.sequor
+           (L.not (L.isint v))
+           (L.eq (L.andint v (L.int msb)) (L.int msb)))
         (type_error v) (L.int 0))
 
 (* let listv xs = List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs) *)

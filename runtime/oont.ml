@@ -3,13 +3,13 @@
 Runtime representation
 ----------------------
 
-int                   immediate               0bXXXXXXXXXX0
-true                  immediate               0b11
-false                 immediate               0b01
-empty list            immediate               0b111
-undefined             immediate               0b1111
-eof                   immediate               0b11111
-char                  immediate               0bXXXXXXXX101
+int                   immediate               msb 0
+true                  immediate               msb 1, 0b001
+false                 immediate               msb 1, 0b000
+empty list            immediate               msb 1, 0b100
+undefined             immediate               msb 1, 0b110
+eof                   immediate               msb 1, 0b101
+char                  immediate               msb 1, 0b111
 pair                  block                   tag 0, size 2
 vector                block                   tag 1, size n
 string                block                   tag 2, size 1: name
@@ -41,18 +41,19 @@ let symbols = H.create 0
 let sym name =
   Obj.repr (H.merge symbols (Obj.with_tag 3 (Obj.repr (Some name))))
 
-let emptylist = 0b111
-let falsev = 0b01
-let truev = 0b11
+let msb = 1 lsl (Sys.word_size - 2)
+let emptylist = msb lor 0b100
+let falsev = msb
+let truev = msb lor 1
 
 let rec print ppf x =
   if Obj.is_int x then
     let x = Obj.obj x in
-    if x land 1 == 0 then (* int *)
-      Format.pp_print_int ppf (x lsr 1)
-    else if x == emptylist then Format.pp_print_string ppf "()"
-    else if x == falsev then Format.pp_print_string ppf "#f"
-    else if x == truev then Format.pp_print_string ppf "#t"
+    if x land msb = 0 then (* int *)
+      Format.pp_print_int ppf x
+    else if x = emptylist then Format.pp_print_string ppf "()"
+    else if x = falsev then Format.pp_print_string ppf "#f"
+    else if x = truev then Format.pp_print_string ppf "#t"
     else assert false
   else
     match Obj.tag x with

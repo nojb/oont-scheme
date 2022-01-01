@@ -4,24 +4,28 @@
 
   $ oont -dlambda vars1.scm
   (apply (field 2 (global Oont!))
-    (let (let/5 = 2 let/6 = 4)
-      (lsl
+    (let (let/5 = 1 let/6 = 2)
+      (and
         (+
           (seq
-            (if (|| (not (isint let/5)) (== (and let/5 1) 1))
+            (if
+              (|| (not (isint let/5))
+                (== (and let/5 -4611686018427387904) -4611686018427387904))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/5)))
               0)
-            (lsr let/5 1))
+            let/5)
           (seq
-            (if (|| (not (isint let/6)) (== (and let/6 1) 1))
+            (if
+              (|| (not (isint let/6))
+                (== (and let/6 -4611686018427387904) -4611686018427387904))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/6)))
               0)
-            (lsr let/6 1)))
-        1)))
+            let/6))
+        4611686018427387903)))
 
   $ ./vars1.exe
   3
@@ -32,26 +36,30 @@
 
   $ oont -dlambda vars2.scm
   (apply (field 2 (global Oont!))
-    (let (let/5 = (makeblock 0 2) let/6 = 4)
+    (let (let/5 = (makeblock 0 1) let/6 = 2)
       (seq
         (setfield_ptr 0 let/5
-          (lsl
+          (and
             (+
               (seq
-                (if (|| (not (isint let/6)) (== (and let/6 1) 1))
+                (if
+                  (|| (not (isint let/6))
+                    (== (and let/6 -4611686018427387904) -4611686018427387904))
                   (raise
                     (makeblock 0 (field 0 (global Oont!))
                       (makeblock 5 "Type error" let/6)))
                   0)
-                (lsr let/6 1))
+                let/6)
               (seq
-                (if (|| (not (isint let/6)) (== (and let/6 1) 1))
+                (if
+                  (|| (not (isint let/6))
+                    (== (and let/6 -4611686018427387904) -4611686018427387904))
                   (raise
                     (makeblock 0 (field 0 (global Oont!))
                       (makeblock 5 "Type error" let/6)))
                   0)
-                (lsr let/6 1)))
-            1))
+                let/6))
+            4611686018427387903))
         (field 0 let/5))))
 
   $ ./vars2.exe

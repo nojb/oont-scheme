@@ -6,7 +6,8 @@
   (apply (field 2 (global Oont!))
     (makemutable 0 (apply (field 1 (global Oont!)) "c")
       (makemutable 0 (apply (field 1 (global Oont!)) "b")
-        (makemutable 0 (apply (field 1 (global Oont!)) "a") 7))))
+        (makemutable 0 (apply (field 1 (global Oont!)) "a")
+          -4611686018427387900))))
 
   $ ./quote1.exe
   (c . (b . (a . ())))
@@ -16,7 +17,7 @@
   > EOF
 
   $ oont -dlambda quote2.scm
-  (apply (field 2 (global Oont!)) 7)
+  (apply (field 2 (global Oont!)) -4611686018427387900)
   $ ./quote2.exe
   ()
 
@@ -26,6 +27,8 @@
 
   $ oont -dlambda quote3.scm
   (apply (field 2 (global Oont!))
-    (makemutable 0 1 (makemutable 0 3 (makemutable 0 1 7))))
+    (makemutable 0 -4611686018427387904
+      (makemutable 0 -4611686018427387903
+        (makemutable 0 -4611686018427387904 -4611686018427387900))))
   $ ./quote3.exe
   (#f . (#t . (#f . ())))

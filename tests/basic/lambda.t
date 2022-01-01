@@ -5,8 +5,8 @@
 
   $ oont -dlambda lambda1.scm
   (apply (field 2 (global Oont!))
-    (seq (makeblock 4 1 "" (function dummy/3 24))
-      (let (let/5 = (makeblock 4 1 "" (function dummy/4 24)))
+    (seq (makeblock 4 1 "" (function dummy/3 12))
+      (let (let/5 = (makeblock 4 1 "" (function dummy/4 12)))
         (seq
           (if (isint let/5)
             (raise
@@ -37,7 +37,7 @@
       (let/13 =
          (makeblock 4 2 ""
            (function arg/10 arg/11
-             (lsl
+             (and
                (+
                  (let
                    (let/12 =
@@ -59,20 +59,26 @@
                             (makeblock 0 (field 0 (global Oont!))
                               (makeblock 5 "Type error" arg/10))))))
                    (seq
-                     (if (|| (not (isint let/12)) (== (and let/12 1) 1))
+                     (if
+                       (|| (not (isint let/12))
+                         (== (and let/12 -4611686018427387904)
+                           -4611686018427387904))
                        (raise
                          (makeblock 0 (field 0 (global Oont!))
                            (makeblock 5 "Type error" let/12)))
                        0)
-                     (lsr let/12 1)))
+                     let/12))
                  (seq
-                   (if (|| (not (isint arg/11)) (== (and arg/11 1) 1))
+                   (if
+                     (|| (not (isint arg/11))
+                       (== (and arg/11 -4611686018427387904)
+                         -4611686018427387904))
                      (raise
                        (makeblock 0 (field 0 (global Oont!))
                          (makeblock 5 "Type error" arg/11)))
                      0)
-                   (lsr arg/11 1)))
-               1))))
+                   arg/11))
+               4611686018427387903))))
       (seq
         (if (isint let/13)
           (raise
@@ -85,25 +91,31 @@
             (apply (field 2 let/13)
               (makeblock 4 1 ""
                 (function arg/6
-                  (lsl
+                  (and
                     (+
                       (seq
-                        (if (|| (not (isint arg/6)) (== (and arg/6 1) 1))
+                        (if
+                          (|| (not (isint arg/6))
+                            (== (and arg/6 -4611686018427387904)
+                              -4611686018427387904))
                           (raise
                             (makeblock 0 (field 0 (global Oont!))
                               (makeblock 5 "Type error" arg/6)))
                           0)
-                        (lsr arg/6 1))
-                      (let (let/9 = 2)
+                        arg/6)
+                      (let (let/9 = 1)
                         (seq
-                          (if (|| (not (isint let/9)) (== (and let/9 1) 1))
+                          (if
+                            (|| (not (isint let/9))
+                              (== (and let/9 -4611686018427387904)
+                                -4611686018427387904))
                             (raise
                               (makeblock 0 (field 0 (global Oont!))
                                 (makeblock 5 "Type error" let/9)))
                             0)
-                          (lsr let/9 1))))
-                    1)))
-              24)
+                          let/9)))
+                    4611686018427387903)))
+              12)
             (raise
               (makeblock 0 (field 0 (global Oont!))
                 (makeblock 5 "Type error" let/13))))
@@ -124,12 +136,14 @@
     (makeblock 4 1 ""
       (function arg/4
         (seq
-          (if (|| (not (isint arg/4)) (== (and arg/4 1) 1))
+          (if
+            (|| (not (isint arg/4))
+              (== (and arg/4 -4611686018427387904) -4611686018427387904))
             (raise
               (makeblock 0 (field 0 (global Oont!))
                 (makeblock 5 "Type error" arg/4)))
             0)
-          (if (== arg/4 0) 3 1)))))
+          (if (== arg/4 0) -4611686018427387903 -4611686018427387904)))))
 
   $ ./lambda3.exe
   #<procedure>
