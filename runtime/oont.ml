@@ -71,7 +71,9 @@ let rec print ppf x =
           done
         in
         Format.fprintf ppf "@[<2>#(%a)@]" print x
-    | 3 -> Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
+    | 3 ->
+        (* symbol *)
+        Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
     | 4 ->
         (* procedure *)
         let name = Obj.obj (Obj.field x 1) in
