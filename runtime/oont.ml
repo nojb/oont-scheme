@@ -95,3 +95,67 @@ let () =
     | _ -> None)
 
 let print x = Format.printf "@[%a@]@." print x
+let null = Obj.repr emptylist
+let is_null obj = obj = null
+let is_pair obj = Obj.is_block obj && Obj.tag obj = 0
+
+let rec append = function
+  | [] -> null
+  | list :: lists ->
+      let rec loop list =
+        if Obj.is_int list then
+          if list = null then append lists else assert false (* type error *)
+        else
+          match Obj.tag list with
+          | 0 -> Obj.repr (Obj.field list 0, loop (Obj.field list 1))
+          | _ ->
+              (* type error *)
+              assert false
+      in
+      loop list
+
+let list_to_vector list =
+  let size =
+    let rec aux accu list =
+      if is_null list then accu
+      else if is_pair list then aux (accu + 1) (Obj.field list 1)
+      else assert false
+      (* type error *)
+    in
+    aux 0 list
+  in
+  let vec = Obj.new_block 1 size in
+  let rec loop i list =
+    if i = size then vec
+    else (
+      Obj.set_field vec i (Obj.field list 0);
+      loop (i + 1) (Obj.field list 1))
+  in
+  loop 0 list
+
+let is_vector obj = Obj.is_block obj && Obj.tag obj = 1
+
+let vector_append vectors =
+  let size =
+    let rec aux accu = function
+      | [] -> accu
+      | vector :: vectors ->
+          if is_vector vector then aux (accu + Obj.size vector) vectors
+          else assert false
+      (* type error *)
+    in
+    aux 0 vectors
+  in
+  let vec = Obj.new_block 1 size in
+  let rec loop i = function
+    | [] -> vec
+    | vector :: vectors ->
+        let size = Obj.size vector in
+        for j = 0 to size - 1 do
+          Obj.set_field vec (i + j) (Obj.field vector j)
+        done;
+        loop (i + size) vectors
+  in
+  loop 0 vectors
+
+let apply _ _ = assert false

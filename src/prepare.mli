@@ -1,4 +1,15 @@
-type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop | Pappend
+type primitive =
+  | Pcons
+  | Psym of string
+  | Paddint
+  | Papply
+  | Pzerop
+  | Pappend
+  | Peq
+  | Pvectorappend
+  | Pvector
+  | Plist
+  | Pvectoroflist
 
 type constant =
   | Const_bool of bool
@@ -8,7 +19,6 @@ type constant =
 
 type expr_desc =
   | Const of constant
-  | Vector of expr list
   | Apply of expr * expr list
   | Var of Ident.t Location.loc
   | If of expr * expr * expr

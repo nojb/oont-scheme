@@ -72,8 +72,16 @@ let comp_primitive p args =
            (toint x) xs)
   | Pcons, [ car; cdr ] -> cons car cdr
   | Psym s, [] -> get_sym s
-  | Pappend, [ _x; _cdr ] -> failwith "Pappend"
-  | _ -> invalid_arg "comp_primitive"
+  | Pappend, el -> L.apply (prim "append") [ List.fold_left cons (L.int 0) el ]
+  | Peq, [ e1; e2 ] -> L.eq e1 e2
+  | Pvector, el -> L.makeblock 1 el
+  | Plist, el -> List.fold_left cons emptylist (List.rev el)
+  | Pvectoroflist, [ e ] -> L.apply (prim "list_to_vector") [ e ]
+  | Pvectorappend, el ->
+      L.apply (prim "vector_append") [ List.fold_left cons (L.int 0) el ]
+  | Papply, [ f; args ] -> L.apply (prim "apply") [ f; args ]
+  | (Pzerop | Pcons | Psym _ | Peq | Pvectoroflist | Papply), _ ->
+      invalid_arg "comp_primitive"
 
 module Map = Ident.Map
 module Set = Ident.Set
@@ -88,7 +96,7 @@ let rec assigned_vars e =
   | If (e1, e2, e3) ->
       Set.union (assigned_vars e1)
         (Set.union (assigned_vars e2) (assigned_vars e3))
-  | Vector el | Prim (_, el) | Begin el ->
+  | Prim (_, el) | Begin el ->
       List.fold_left
         (fun accu e -> Set.union accu (assigned_vars e))
         Set.empty el
@@ -106,7 +114,6 @@ let rec comp_expr env { P.desc; loc = _ } =
   | Const (Const_bool b) -> boolv b
   | Const Const_emptylist -> emptylist
   | Const Const_undefined -> undefined
-  | Vector el -> L.makeblock 1 (List.map (comp_expr env) el)
   | Apply (f, args) -> apply (comp_expr env f) (List.map (comp_expr env) args)
   | Var id ->
       let var = L.var (Map.find id.txt env.vars) in

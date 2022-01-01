@@ -1,6 +1,17 @@
 open Location
 
-type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop | Pappend
+type primitive =
+  | Pcons
+  | Psym of string
+  | Paddint
+  | Papply
+  | Pzerop
+  | Pappend
+  | Peq
+  | Pvectorappend
+  | Pvector
+  | Plist
+  | Pvectoroflist
 
 module Env = Map.Make (String)
 
@@ -17,7 +28,6 @@ type binding =
 
 and expr_desc =
   | Const of constant
-  | Vector of expr list
   | Apply of expr * expr list
   | Var of Ident.t loc
   | If of expr * expr * expr
@@ -48,6 +58,11 @@ let arity_of_primitive = function
   | Papply -> Fixed 2
   | Pzerop -> Fixed 1
   | Pappend -> Variadic 0
+  | Peq -> Fixed 2
+  | Pvectorappend -> Variadic 0
+  | Pvector -> Variadic 0
+  | Plist -> Variadic 0
+  | Pvectoroflist -> Fixed 1
 
 let undefined = { desc = Const Const_undefined; loc = Location.none }
 
@@ -55,7 +70,7 @@ let rec parse_expr env { Parser.desc; loc } =
   match desc with
   | Bool b -> const ~loc (Const_bool b)
   | Int n -> const ~loc (Const_int n)
-  | Vector el -> { desc = Vector (List.map (parse_expr env) el); loc }
+  | Vector sexpl -> prim ~loc Pvector (List.map (parse_expr env) sexpl)
   | Atom s -> (
       match Env.find_opt s env with
       | Some (Evar txt) -> { desc = Var { txt; loc }; loc }
@@ -91,7 +106,16 @@ let rec parse_expr env { Parser.desc; loc } =
             loc;
           }
       | Some (Esyntax f) -> f ~loc env args
-      | Some (Eprim p) -> prim ~loc p (List.map (parse_expr env) args)
+      | Some (Eprim p) ->
+          (match arity_of_primitive p with
+          | Fixed n ->
+              if List.compare_length_with args n <> 0 then
+                failwith "arity mismatch"
+          | Variadic n ->
+              let n = -n - 1 in
+              if List.compare_length_with args n < 0 then
+                failwith "arity mismatch");
+          prim ~loc p (List.map (parse_expr env) args)
       | None -> failwith (Printf.sprintf "not_found: %s" s))
   | List [] -> failwith "(): bad syntax"
   | List (f :: args) ->
@@ -124,7 +148,7 @@ let quote_syntax ~loc:_ _env = function
         | Int n -> const ~loc (Const_int n)
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
-        | Vector sexpl -> { desc = Vector (List.map quote sexpl); loc }
+        | Vector sexpl -> prim ~loc Pvector (List.map quote sexpl)
       in
       quote x
   | _ -> failwith "quote: bad syntax"
@@ -299,10 +323,12 @@ let quasiquote_syntax ~loc:_ env = function
       let rec qq n x =
         let loc = x.Parser.loc in
         match x.Parser.desc with
+        | List [ { desc = Atom "quasiquote"; loc = loc_sym }; x ] ->
+            prim ~loc Pcons [ sym ~loc:loc_sym "quasiquote"; qq (n + 1) x ]
         | List [ { desc = Atom "unquote"; loc = loc_comma }; x ] ->
             if n = 0 then parse_expr env x
             else prim ~loc Pcons [ sym ~loc:loc_comma "unquote"; qq (n - 1) x ]
-        | List xs ->
+        | List sexpl ->
             List.fold_left
               (fun cdr x ->
                 let loc = merge_loc x.Parser.loc cdr.loc in
@@ -311,8 +337,26 @@ let quasiquote_syntax ~loc:_ env = function
                     prim ~loc Pappend [ parse_expr env x; cdr ]
                 | _ -> cons ~loc (qq n x) cdr)
               (const ~loc:Location.none Const_emptylist)
-              (List.rev xs)
-        | Vector _sexpl -> assert false
+              (List.rev sexpl)
+        | Vector sexpl ->
+            let vectors =
+              let rec aux accu = function
+                | [] -> [ prim ~loc Pvector (List.rev accu) ]
+                | {
+                    Parser.desc =
+                      List
+                        [ { Parser.desc = Atom "unquote-splicing"; _ }; sexp ];
+                    _;
+                  }
+                  :: sexpl ->
+                    prim ~loc Pvector (List.rev accu)
+                    :: prim ~loc Pvectoroflist [ parse_expr env sexp ]
+                    :: aux [] sexpl
+                | sexp :: sexpl -> aux (parse_expr env sexp :: accu) sexpl
+              in
+              aux [] sexpl
+            in
+            prim ~loc Pvectorappend vectors
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
         | Int n -> const ~loc (Const_int n)
@@ -336,6 +380,8 @@ let initial_env =
       ("lambda", Esyntax lambda_syntax);
       ("+", Eprim Paddint);
       ("zero?", Eprim Pzerop);
+      ("eq?", Eprim Peq);
+      ("eqv?", Eprim Peq);
     ]
   in
   List.fold_left
