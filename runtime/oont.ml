@@ -45,6 +45,7 @@ let msb = 1 lsl (Sys.word_size - 2)
 let emptylist = msb lor 0b100
 let falsev = msb
 let truev = msb lor 1
+let undefined = msb lor 0b110
 
 let rec write_simple oc x =
   if Obj.is_int x then
@@ -54,6 +55,7 @@ let rec write_simple oc x =
     else if x = emptylist then output_string oc "()"
     else if x = falsev then output_string oc "#f"
     else if x = truev then output_string oc "#t"
+    else if x = undefined then output_string oc "#<undefined>"
     else assert false
   else
     match Obj.tag x with
