@@ -46,5 +46,15 @@ rule token = parse
     { mk lexbuf (SYMBOL s) }
 | ';' [^'\n']*
     { token lexbuf }
+| "#|"
+    { comment 0 lexbuf }
 | eof
     { None }
+
+and comment n = parse
+| "|#"
+    { if n = 0 then token lexbuf else comment (n - 1) lexbuf }
+| "#|"
+    { comment (n+1) lexbuf }
+| _
+    { comment n lexbuf }
