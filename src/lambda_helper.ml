@@ -13,8 +13,10 @@ let addint t1 t2 = prim Paddint [ t1; t2 ]
 let andint t1 t2 = prim Pandint [ t1; t2 ]
 let lslint t1 t2 = prim Plslint [ t1; t2 ]
 let lsrint t1 t2 = prim Plsrint [ t1; t2 ]
-let field t n = prim (Pfield n) [ t ]
+let field n t = prim (Pfield n) [ t ]
+let setfield n t1 t2 = prim (Psetfield (n, Pointer, Assignment)) [ t1; t2 ]
 let int n = Lconst (const_int n)
+let assign id t = Lassign (id, t)
 
 let extension_constructor modname name =
   let env =

@@ -9,6 +9,8 @@ type expr_desc =
   | Prim of primitive * expr list
   | Lambda of Ident.t Location.loc list * Ident.t Location.loc option * expr
   | Begin of expr list
+  | Assign of Ident.t Location.loc * expr
+  | Let of Ident.t * expr * expr
 
 and expr = { desc : expr_desc; loc : Location.t }
 

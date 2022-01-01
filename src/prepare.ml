@@ -19,6 +19,8 @@ and expr_desc =
   | Prim of primitive * expr list
   | Lambda of Ident.t loc list * Ident.t loc option * expr
   | Begin of expr list
+  | Assign of Ident.t loc * expr
+  | Let of Ident.t * expr * expr
 
 and expr = { desc : expr_desc; loc : Location.t }
 
@@ -135,11 +137,56 @@ let lambda_syntax ~loc env = function
       in
       let args = List.map (fun (_, id, loc) -> Location.mkloc id loc) args in
       { desc = Lambda (args, None, parse_expr_list env body); loc }
+  | { Parser.desc = Symbol args; loc = loc_args } :: body ->
+      let id = Ident.create_local args in
+      let env = Env.add args (Evar id) env in
+      {
+        desc =
+          Lambda
+            ([], Some (Location.mkloc id loc_args), parse_expr_list env body);
+        loc;
+      }
   | _ -> failwith "lambda: bad syntax"
+
+let set_syntax ~loc env = function
+  | [ { Parser.desc = Symbol s; loc = loc_sym }; e ] -> (
+      match Env.find_opt s env with
+      | None -> failwith (Printf.sprintf "set!: not found: %s" s)
+      | Some (Evar id) ->
+          { desc = Assign (Location.mkloc id loc_sym, parse_expr env e); loc }
+      | Some (Esyntax _) -> failwith "set!: cannot modify syntax"
+      | Some (Eprim _) -> failwith "set!: cannot modify primitive")
+  | _ -> failwith "set!: bad syntax"
+
+let let_syntax ~loc env = function
+  | { Parser.desc = List bindings; loc = _ } :: body ->
+      let bindings =
+        List.map
+          (function
+            | {
+                Parser.desc = List [ { Parser.desc = Symbol var; loc = _ }; e ];
+                loc = _;
+              } ->
+                (var, Ident.create_local var, parse_expr env e)
+            | _ -> failwith "let: bad syntax")
+          bindings
+      in
+      let env =
+        List.fold_left
+          (fun env (var, id, _) -> Env.add var (Evar id) env)
+          env bindings
+      in
+      List.fold_right
+        (fun (_, id, e) body -> { desc = Let (id, e, body); loc })
+        (* FIXME loc *)
+        bindings (parse_expr_list env body)
+  | _ -> failwith "let: bad syntax"
 
 let initial_env =
   Env.add "quote" (Esyntax quote_syntax)
-    (Env.add "if" (Esyntax if_syntax)
-       (Env.add "lambda" (Esyntax lambda_syntax)
-          (Env.add "+" (Eprim Paddint)
-             (Env.add "zero?" (Eprim Pzerop) Env.empty))))
+    (Env.add "set!" (Esyntax set_syntax)
+       (Env.add "let" (Esyntax let_syntax)
+          (Env.add "if" (Esyntax if_syntax)
+             (Env.add "lambda" (Esyntax lambda_syntax)
+                (Env.add "+" (Eprim Paddint)
+                   (Env.add "zero?" (Eprim Pzerop) Env.empty))))))

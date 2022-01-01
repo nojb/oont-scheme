@@ -10,8 +10,10 @@ val addint : t -> t -> t
 val andint : t -> t -> t
 val lslint : t -> t -> t
 val lsrint : t -> t -> t
-val field : t -> int -> t
+val field : int -> t -> t
+val setfield : int -> t -> t -> t
 val int : int -> t
+val assign : Ident.t -> t -> t
 val extension_constructor : string -> string -> t
 val value : string -> string -> t
 val letin : t -> (Ident.t -> t) -> t

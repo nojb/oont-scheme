@@ -41,8 +41,8 @@ let apply f args =
   L.letin f (fun id ->
       let f = L.var id in
       let doit =
-        let arity = L.field f 0 in
-        let clos = L.field f 2 in
+        let arity = L.field 0 f in
+        let clos = L.field 2 f in
         let nargs = if args = [] then 1 else List.length args in
         L.ifthenelse
           (L.eq (L.int nargs) arity)
@@ -73,24 +73,70 @@ let comp_primitive p args =
   | Psym s, [] -> get_sym s
   | _ -> invalid_arg "comp_primitive"
 
-let rec comp_expr { P.desc; loc = _ } =
+module Map = Ident.Map
+module Set = Ident.Set
+
+let rec assigned_vars e =
+  match e.P.desc with
+  | Const _ | Var _ -> Set.empty
+  | Apply (f, args) ->
+      List.fold_left
+        (fun accu e -> Set.union accu (assigned_vars e))
+        (assigned_vars f) args
+  | If (e1, e2, None) -> Set.union (assigned_vars e1) (assigned_vars e2)
+  | If (e1, e2, Some e3) ->
+      Set.union (assigned_vars e1)
+        (Set.union (assigned_vars e2) (assigned_vars e3))
+  | Prim (_, el) | Begin el ->
+      List.fold_left
+        (fun accu e -> Set.union accu (assigned_vars e))
+        Set.empty el
+  | Lambda (_, _, body) -> assigned_vars body
+  | Assign ({ txt = id; _ }, e) -> Set.add id (assigned_vars e)
+  | Let (_, e1, e2) -> Set.union (assigned_vars e1) (assigned_vars e2)
+
+type env = { vars : Ident.t Map.t; assigned_vars : Set.t }
+
+let add_var id id1 env = { env with vars = Map.add id id1 env.vars }
+
+let rec comp_expr env { P.desc; loc = _ } =
   match desc with
   | Const (Const_int n) -> intv n
   | Const (Const_bool b) -> boolv b
   | Const Const_emptylist -> emptylist
-  | Apply (f, args) -> apply (comp_expr f) (List.map comp_expr args)
-  | Var { txt; _ } -> Lvar txt
+  | Apply (f, args) -> apply (comp_expr env f) (List.map (comp_expr env) args)
+  | Var id ->
+      let var = L.var (Map.find id.txt env.vars) in
+      if Set.mem id.txt env.assigned_vars then L.field 0 var else var
   | If (e1, e2, e3) ->
-      let e3 = match e3 with None -> undefined | Some e3 -> comp_expr e3 in
-      if_ (comp_expr e1) (comp_expr e2) e3
-  | Prim (p, args) -> comp_primitive p (List.map comp_expr args)
+      let e3 =
+        match e3 with None -> undefined | Some e3 -> comp_expr env e3
+      in
+      if_ (comp_expr env e1) (comp_expr env e2) e3
+  | Prim (p, args) -> comp_primitive p (List.map (comp_expr env) args)
   | Lambda (args, _extra, body) ->
       let args =
         if args = [] then [ Ident.create_local "dummy" ]
         else List.map (fun { Location.txt; _ } -> txt) args
       in
       L.makeblock 4
-        [ L.int (List.length args); L.string ""; L.func args (comp_expr body) ]
+        [
+          L.int (List.length args);
+          L.string "";
+          L.func args (comp_expr env body);
+        ]
   | Begin [] -> undefined
   | Begin (e :: es) ->
-      List.fold_left (fun accu e -> L.seq accu (comp_expr e)) (comp_expr e) es
+      List.fold_left
+        (fun accu e -> L.seq accu (comp_expr env e))
+        (comp_expr env e) es
+  | Assign (id, e) ->
+      L.setfield 0 (L.var (Map.find id.txt env.vars)) (comp_expr env e)
+  | Let (id, e1, e2) ->
+      let var = comp_expr env e1 in
+      let mut = Set.mem id env.assigned_vars in
+      let var = if mut then L.makeblock 0 [ var ] else var in
+      L.letin var (fun id1 -> comp_expr (add_var id id1 env) e2)
+
+let comp_expr e =
+  comp_expr { assigned_vars = assigned_vars e; vars = Map.empty } e
