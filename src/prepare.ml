@@ -1,6 +1,6 @@
 open Location
 
-type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop | Psplice
+type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop | Pappend
 
 module Env = Map.Make (String)
 
@@ -17,6 +17,7 @@ type binding =
 
 and expr_desc =
   | Const of constant
+  | Vector of expr list
   | Apply of expr * expr list
   | Var of Ident.t loc
   | If of expr * expr * expr
@@ -46,7 +47,7 @@ let arity_of_primitive = function
   | Paddint -> Variadic 0
   | Papply -> Fixed 2
   | Pzerop -> Fixed 1
-  | Psplice -> Fixed 2
+  | Pappend -> Variadic 0
 
 let undefined = { desc = Const Const_undefined; loc = Location.none }
 
@@ -54,6 +55,7 @@ let rec parse_expr env { Parser.desc; loc } =
   match desc with
   | Bool b -> const ~loc (Const_bool b)
   | Int n -> const ~loc (Const_int n)
+  | Vector el -> { desc = Vector (List.map (parse_expr env) el); loc }
   | Atom s -> (
       match Env.find_opt s env with
       | Some (Evar txt) -> { desc = Var { txt; loc }; loc }
@@ -122,6 +124,7 @@ let quote_syntax ~loc:_ _env = function
         | Int n -> const ~loc (Const_int n)
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
+        | Vector sexpl -> { desc = Vector (List.map quote sexpl); loc }
       in
       quote x
   | _ -> failwith "quote: bad syntax"
@@ -305,10 +308,11 @@ let quasiquote_syntax ~loc:_ env = function
                 let loc = merge_loc x.Parser.loc cdr.loc in
                 match x.Parser.desc with
                 | List [ { desc = Atom "unquote-splicing"; _ }; x ] ->
-                    prim ~loc Psplice [ parse_expr env x; cdr ]
+                    prim ~loc Pappend [ parse_expr env x; cdr ]
                 | _ -> cons ~loc (qq n x) cdr)
               (const ~loc:Location.none Const_emptylist)
               (List.rev xs)
+        | Vector _sexpl -> assert false
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
         | Int n -> const ~loc (Const_int n)

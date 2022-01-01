@@ -2,6 +2,7 @@
 type desc =
   | Int of string
   | Lparen
+  | HASHLPAREN
   | Rparen
   | Quote
   | Quasiquote
@@ -37,6 +38,8 @@ rule token = parse
     { mk lexbuf Lparen }
 | ')'
     { mk lexbuf Rparen }
+| "#("
+    { mk lexbuf HASHLPAREN }
 | '\''
     { mk lexbuf Quote }
 | '`'

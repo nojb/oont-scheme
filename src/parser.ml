@@ -1,4 +1,10 @@
-type desc = List of sexp list | Atom of string | Int of int | Bool of bool
+type desc =
+  | List of sexp list
+  | Atom of string
+  | Int of int
+  | Bool of bool
+  | Vector of sexp list
+
 and sexp = { desc : desc; loc : Location.t }
 
 let merge_loc { Location.loc_start; _ } { Location.loc_end; _ } =
@@ -6,14 +12,18 @@ let merge_loc { Location.loc_start; _ } { Location.loc_end; _ } =
 
 let rec print_sexp ppf x =
   match x.desc with
-  | List l ->
+  | List sexpl ->
       Format.fprintf ppf "@[<1>(%a)@]"
         (Format.pp_print_list ~pp_sep:Format.pp_print_space print_sexp)
-        l
+        sexpl
   | Atom s -> Format.pp_print_string ppf s
   | Int n -> Format.pp_print_int ppf n
   | Bool true -> Format.pp_print_string ppf "#t"
   | Bool false -> Format.pp_print_string ppf "#f"
+  | Vector sexpl ->
+      Format.fprintf ppf "@[<2>#(%a)@]"
+        (Format.pp_print_list ~pp_sep:Format.pp_print_space print_sexp)
+        sexpl
 
 let rec parse_sexp toks =
   match toks with
@@ -22,6 +32,16 @@ let rec parse_sexp toks =
         match toks with
         | { Lexer.desc = Rparen; loc = loc2 } :: toks ->
             ({ desc = List (List.rev accu); loc = merge_loc loc1 loc2 }, toks)
+        | _ ->
+            let x, toks = parse_sexp toks in
+            loop (x :: accu) toks
+      in
+      loop [] toks
+  | { desc = HASHLPAREN; loc = loc1 } :: toks ->
+      let rec loop accu toks =
+        match toks with
+        | { Lexer.desc = Rparen; loc = loc2 } :: toks ->
+            ({ desc = Vector (List.rev accu); loc = merge_loc loc1 loc2 }, toks)
         | _ ->
             let x, toks = parse_sexp toks in
             loop (x :: accu) toks
