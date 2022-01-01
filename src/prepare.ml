@@ -70,7 +70,7 @@ let rec parse_expr env { Parser.desc; loc } =
                 loc;
               }
           | Variadic _ -> assert false)
-      | None -> failwith "not found")
+      | None -> failwith (Printf.sprintf "not found: %s" s))
   | List ({ desc = Symbol s; loc = loc' } :: args) -> (
       match Env.find_opt s env with
       | Some (Evar id) ->
@@ -83,7 +83,7 @@ let rec parse_expr env { Parser.desc; loc } =
           }
       | Some (Esyntax f) -> f ~loc env args
       | Some (Eprim p) -> prim ~loc p (List.map (parse_expr env) args)
-      | _ -> failwith "parse_expr")
+      | None -> failwith (Printf.sprintf "not_found: %s" s))
   | List [] -> failwith "(): bad syntax"
   | List (f :: args) ->
       { desc = Apply (parse_expr env f, List.map (parse_expr env) args); loc }
