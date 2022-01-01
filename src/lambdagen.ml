@@ -84,8 +84,7 @@ let rec assigned_vars e =
       List.fold_left
         (fun accu e -> Set.union accu (assigned_vars e))
         (assigned_vars f) args
-  | If (e1, e2, None) -> Set.union (assigned_vars e1) (assigned_vars e2)
-  | If (e1, e2, Some e3) ->
+  | If (e1, e2, e3) ->
       Set.union (assigned_vars e1)
         (Set.union (assigned_vars e2) (assigned_vars e3))
   | Prim (_, el) | Begin el ->
@@ -111,10 +110,7 @@ let rec comp_expr env { P.desc; loc = _ } =
       let var = L.var (Map.find id.txt env.vars) in
       if Set.mem id.txt env.assigned_vars then L.field 0 var else var
   | If (e1, e2, e3) ->
-      let e3 =
-        match e3 with None -> undefined | Some e3 -> comp_expr env e3
-      in
-      if_ (comp_expr env e1) (comp_expr env e2) e3
+      if_ (comp_expr env e1) (comp_expr env e2) (comp_expr env e3)
   | Prim (p, args) -> comp_primitive p (List.map (comp_expr env) args)
   | Lambda (args, _extra, body) ->
       let args, env =

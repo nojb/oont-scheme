@@ -10,7 +10,7 @@ type expr_desc =
   | Const of constant
   | Apply of expr * expr list
   | Var of Ident.t Location.loc
-  | If of expr * expr * expr option
+  | If of expr * expr * expr
   | Prim of primitive * expr list
   | Lambda of Ident.t Location.loc list * Ident.t Location.loc option * expr
   | Begin of expr list

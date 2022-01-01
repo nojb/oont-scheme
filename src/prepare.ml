@@ -19,7 +19,7 @@ and expr_desc =
   | Const of constant
   | Apply of expr * expr list
   | Var of Ident.t loc
-  | If of expr * expr * expr option
+  | If of expr * expr * expr
   | Prim of primitive * expr list
   | Lambda of Ident.t loc list * Ident.t loc option * expr
   | Begin of expr list
@@ -46,6 +46,8 @@ let arity_of_primitive = function
   | Paddint -> Variadic 0
   | Papply -> Fixed 2
   | Pzerop -> Fixed 1
+
+let undefined = { desc = Const Const_undefined; loc = Location.none }
 
 let rec parse_expr env { Parser.desc; loc } =
   match desc with
@@ -97,11 +99,10 @@ and parse_expr_list env xs =
 
 let if_syntax ~loc env = function
   | [ x1; x2 ] ->
-      { desc = If (parse_expr env x1, parse_expr env x2, None); loc }
+      { desc = If (parse_expr env x1, parse_expr env x2, undefined); loc }
   | [ x1; x2; x3 ] ->
       {
-        desc =
-          If (parse_expr env x1, parse_expr env x2, Some (parse_expr env x3));
+        desc = If (parse_expr env x1, parse_expr env x2, parse_expr env x3);
         loc;
       }
   | _ -> failwith "if: bad syntax"
@@ -197,8 +198,7 @@ let and_syntax ~loc env el =
               If
                 ( parse_expr env e,
                   accu,
-                  Some { desc = Const (Const_bool false); loc = Location.none }
-                );
+                  { desc = Const (Const_bool false); loc = Location.none } );
             loc = Location.none;
           })
         (parse_expr env e) el
@@ -216,27 +216,77 @@ let or_syntax ~loc env el =
               Let
                 ( id,
                   parse_expr env e,
-                  { desc = If (var, var, Some accu); loc = Location.none } );
+                  { desc = If (var, var, accu); loc = Location.none } );
             loc = Location.none;
           })
         (parse_expr env e) el
 
 let when_syntax ~loc env = function
   | e :: el ->
-      { desc = If (parse_expr env e, parse_expr_list env el, None); loc }
+      { desc = If (parse_expr env e, parse_expr_list env el, undefined); loc }
   | [] -> failwith "when: bad syntax"
 
 let unless_syntax ~loc env = function
   | e :: el ->
-      {
-        desc =
-          If
-            ( parse_expr env e,
-              { desc = Const Const_undefined; loc = Location.none },
-              Some (parse_expr_list env el) );
-        loc;
-      }
+      { desc = If (parse_expr env e, undefined, parse_expr_list env el); loc }
   | [] -> failwith "unless: bad syntax"
+
+let cond_syntax ~loc:_ env clauses =
+  let clauses, else_clause =
+    let rec loop = function
+      | [
+          {
+            Parser.desc = List ({ desc = Atom "else"; loc = _ } :: rest);
+            loc = _;
+          };
+        ] ->
+          let rest = parse_expr_list env rest in
+          ([], rest)
+      | { desc = List (test :: body); loc = _ } :: clauses ->
+          let clauses, else_clause = loop clauses in
+          let body =
+            match body with
+            | [] -> `None
+            | [ { desc = Atom "=>"; loc = _ }; body ] ->
+                `Implies (parse_expr env body)
+            | body -> `Then (parse_expr_list env body)
+          in
+          ((parse_expr env test, body) :: clauses, else_clause)
+      | [] -> ([], undefined)
+      | _ -> failwith "cond: bad syntax"
+    in
+    loop clauses
+  in
+  List.fold_left
+    (fun else_ (test, body) ->
+      let desc =
+        match body with
+        | `None ->
+            let id = Ident.create_local "cond" in
+            let var =
+              { desc = Var (Location.mknoloc id); loc = Location.none }
+            in
+            Let (id, test, { desc = If (var, var, else_); loc = Location.none })
+        | `Implies e ->
+            let id = Ident.create_local "cond" in
+            let var =
+              { desc = Var (Location.mknoloc id); loc = Location.none }
+            in
+            Let
+              ( id,
+                test,
+                {
+                  desc =
+                    If
+                      ( var,
+                        { desc = Apply (e, [ var ]); loc = Location.none },
+                        else_ );
+                  loc = Location.none;
+                } )
+        | `Then e -> If (test, e, else_)
+      in
+      { desc; loc = Location.none })
+    else_clause (List.rev clauses)
 
 let initial_env =
   let bindings =
@@ -246,6 +296,7 @@ let initial_env =
       ("or", Esyntax or_syntax);
       ("when", Esyntax when_syntax);
       ("unless", Esyntax unless_syntax);
+      ("cond", Esyntax cond_syntax);
       ("set!", Esyntax set_syntax);
       ("let", Esyntax let_syntax);
       ("if", Esyntax if_syntax);
