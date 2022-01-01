@@ -59,20 +59,14 @@
                             (makeblock 0 (field 0 (global Oont!))
                               (makeblock 5 "Type error" arg/10))))))
                    (seq
-                     (if
-                       (|| (not (isint let/12))
-                         (== (and let/12 -4611686018427387904)
-                           -4611686018427387904))
+                     (if (|| (not (isint let/12)) (lsr let/12 62))
                        (raise
                          (makeblock 0 (field 0 (global Oont!))
                            (makeblock 5 "Type error" let/12)))
                        0)
                      let/12))
                  (seq
-                   (if
-                     (|| (not (isint arg/11))
-                       (== (and arg/11 -4611686018427387904)
-                         -4611686018427387904))
+                   (if (|| (not (isint arg/11)) (lsr arg/11 62))
                      (raise
                        (makeblock 0 (field 0 (global Oont!))
                          (makeblock 5 "Type error" arg/11)))
@@ -94,10 +88,7 @@
                   (and
                     (+
                       (seq
-                        (if
-                          (|| (not (isint arg/6))
-                            (== (and arg/6 -4611686018427387904)
-                              -4611686018427387904))
+                        (if (|| (not (isint arg/6)) (lsr arg/6 62))
                           (raise
                             (makeblock 0 (field 0 (global Oont!))
                               (makeblock 5 "Type error" arg/6)))
@@ -105,10 +96,7 @@
                         arg/6)
                       (let (let/9 = 1)
                         (seq
-                          (if
-                            (|| (not (isint let/9))
-                              (== (and let/9 -4611686018427387904)
-                                -4611686018427387904))
+                          (if (|| (not (isint let/9)) (lsr let/9 62))
                             (raise
                               (makeblock 0 (field 0 (global Oont!))
                                 (makeblock 5 "Type error" let/9)))
@@ -136,9 +124,7 @@
     (makeblock 4 1 ""
       (function arg/4
         (seq
-          (if
-            (|| (not (isint arg/4))
-              (== (and arg/4 -4611686018427387904) -4611686018427387904))
+          (if (|| (not (isint arg/4)) (lsr arg/4 62))
             (raise
               (makeblock 0 (field 0 (global Oont!))
                 (makeblock 5 "Type error" arg/4)))

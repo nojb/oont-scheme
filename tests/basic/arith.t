@@ -8,9 +8,7 @@
       (+
         (let (let/3 = 2)
           (seq
-            (if
-              (|| (not (isint let/3))
-                (== (and let/3 -4611686018427387904) -4611686018427387904))
+            (if (|| (not (isint let/3)) (lsr let/3 62))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/3)))
@@ -18,9 +16,7 @@
             let/3))
         (let (let/6 = 3)
           (seq
-            (if
-              (|| (not (isint let/6))
-                (== (and let/6 -4611686018427387904) -4611686018427387904))
+            (if (|| (not (isint let/6)) (lsr let/6 62))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/6)))
@@ -39,9 +35,7 @@
   (apply (field 2 (global Oont!))
     (let (let/3 = 34)
       (seq
-        (if
-          (|| (not (isint let/3))
-            (== (and let/3 -4611686018427387904) -4611686018427387904))
+        (if (|| (not (isint let/3)) (lsr let/3 62))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 5 "Type error" let/3)))
@@ -63,9 +57,7 @@
            (+
              (let (let/3 = 1)
                (seq
-                 (if
-                   (|| (not (isint let/3))
-                     (== (and let/3 -4611686018427387904) -4611686018427387904))
+                 (if (|| (not (isint let/3)) (lsr let/3 62))
                    (raise
                      (makeblock 0 (field 0 (global Oont!))
                        (makeblock 5 "Type error" let/3)))
@@ -73,9 +65,7 @@
                  let/3))
              (let (let/6 = 2)
                (seq
-                 (if
-                   (|| (not (isint let/6))
-                     (== (and let/6 -4611686018427387904) -4611686018427387904))
+                 (if (|| (not (isint let/6)) (lsr let/6 62))
                    (raise
                      (makeblock 0 (field 0 (global Oont!))
                        (makeblock 5 "Type error" let/6)))
@@ -83,9 +73,7 @@
                  let/6)))
            4611686018427387903))
       (seq
-        (if
-          (|| (not (isint let/7))
-            (== (and let/7 -4611686018427387904) -4611686018427387904))
+        (if (|| (not (isint let/7)) (lsr let/7 62))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 5 "Type error" let/7)))
@@ -103,9 +91,7 @@
   (apply (field 2 (global Oont!))
     (let (let/3 = 0)
       (seq
-        (if
-          (|| (not (isint let/3))
-            (== (and let/3 -4611686018427387904) -4611686018427387904))
+        (if (|| (not (isint let/3)) (lsr let/3 62))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 5 "Type error" let/3)))

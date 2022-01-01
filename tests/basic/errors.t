@@ -8,9 +8,7 @@
       (+
         (let (let/5 = 1)
           (seq
-            (if
-              (|| (not (isint let/5))
-                (== (and let/5 -4611686018427387904) -4611686018427387904))
+            (if (|| (not (isint let/5)) (lsr let/5 62))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/5)))
@@ -18,9 +16,7 @@
             let/5))
         (let (let/6 = (apply (field 1 (global Oont!)) "a"))
           (seq
-            (if
-              (|| (not (isint let/6))
-                (== (and let/6 -4611686018427387904) -4611686018427387904))
+            (if (|| (not (isint let/6)) (lsr let/6 62))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
                   (makeblock 5 "Type error" let/6)))

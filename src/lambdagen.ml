@@ -27,9 +27,7 @@ let checkint n =
   L.letin n (fun id ->
       let v = L.var id in
       L.ifthenelse
-        (L.sequor
-           (L.not (L.isint v))
-           (L.eq (L.andint v (L.int msb)) (L.int msb)))
+        (L.sequor (L.not (L.isint v)) (L.lsrint v (L.int (Sys.word_size - 2))))
         (type_error v) (L.int 0))
 
 (* let listv xs = List.fold_left (fun cdr x -> cons x cdr) emptylist (List.rev xs) *)
