@@ -232,61 +232,63 @@ let unless_syntax ~loc env = function
   | [] -> failwith "unless: bad syntax"
 
 let cond_syntax ~loc:_ env clauses =
-  let clauses, else_clause =
-    let rec loop = function
-      | [
-          {
-            Parser.desc = List ({ desc = Atom "else"; loc = _ } :: rest);
-            loc = _;
-          };
-        ] ->
-          let rest = parse_expr_list env rest in
-          ([], rest)
-      | { desc = List (test :: body); loc = _ } :: clauses ->
-          let clauses, else_clause = loop clauses in
-          let body =
-            match body with
-            | [] -> `None
-            | [ { desc = Atom "=>"; loc = _ }; body ] ->
-                `Implies (parse_expr env body)
-            | body -> `Then (parse_expr_list env body)
-          in
-          ((parse_expr env test, body) :: clauses, else_clause)
-      | [] -> ([], undefined)
-      | _ -> failwith "cond: bad syntax"
-    in
-    loop clauses
-  in
-  List.fold_left
-    (fun else_ (test, body) ->
-      let desc =
+  let rec aux = function
+    | [
+        {
+          Parser.desc = List ({ desc = Atom "else"; loc = _ } :: rest);
+          loc = _;
+        };
+      ] ->
+        parse_expr_list env rest
+    | { desc = List (test :: body); loc = _ } :: clauses -> (
+        let test = parse_expr env test in
+        let else_ = aux clauses in
         match body with
-        | `None ->
+        | [] ->
             let id = Ident.create_local "cond" in
             let var =
               { desc = Var (Location.mknoloc id); loc = Location.none }
             in
-            Let (id, test, { desc = If (var, var, else_); loc = Location.none })
-        | `Implies e ->
+            {
+              desc =
+                Let
+                  ( id,
+                    test,
+                    { desc = If (var, var, else_); loc = Location.none } );
+              loc = Location.none;
+            }
+        | [ { desc = Atom "=>"; loc = _ }; body ] ->
             let id = Ident.create_local "cond" in
             let var =
               { desc = Var (Location.mknoloc id); loc = Location.none }
             in
-            Let
-              ( id,
-                test,
-                {
-                  desc =
-                    If
-                      ( var,
-                        { desc = Apply (e, [ var ]); loc = Location.none },
-                        else_ );
-                  loc = Location.none;
-                } )
-        | `Then e -> If (test, e, else_)
-      in
-      { desc; loc = Location.none })
-    else_clause (List.rev clauses)
+            {
+              desc =
+                Let
+                  ( id,
+                    test,
+                    {
+                      desc =
+                        If
+                          ( var,
+                            {
+                              desc = Apply (parse_expr env body, [ var ]);
+                              loc = Location.none;
+                            },
+                            else_ );
+                      loc = Location.none;
+                    } );
+              loc = Location.none;
+            }
+        | body ->
+            {
+              desc = If (test, parse_expr_list env body, else_);
+              loc = Location.none;
+            })
+    | [] -> undefined
+    | _ -> failwith "cond: bad syntax"
+  in
+  aux clauses
 
 let initial_env =
   let bindings =
