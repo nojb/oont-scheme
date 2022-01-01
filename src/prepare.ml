@@ -117,7 +117,7 @@ let quote_syntax ~loc:_ _env = function
                 let loc = merge_loc x.Parser.loc cdr.loc in
                 cons ~loc (quote x) cdr)
               (const ~loc:Location.none Const_emptylist)
-              xs
+              (List.rev xs)
         | Int n -> const ~loc (Const_int n)
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
@@ -298,15 +298,13 @@ let quasiquote_syntax ~loc:_ env = function
         | List [ { desc = Atom "unquote"; loc = loc_comma }; x ] ->
             if n = 0 then parse_expr env x
             else prim ~loc Pcons [ sym ~loc:loc_comma "unquote"; qq (n - 1) x ]
-        | List [ { desc = Atom "unquote-splicing"; loc = _ }; _x ] ->
-            assert false
         | List xs ->
             List.fold_left
               (fun cdr x ->
                 let loc = merge_loc x.Parser.loc cdr.loc in
                 cons ~loc (qq n x) cdr)
               (const ~loc:Location.none Const_emptylist)
-              xs
+              (List.rev xs)
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
         | Int n -> const ~loc (Const_int n)

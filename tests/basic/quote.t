@@ -4,13 +4,13 @@
 
   $ oont -dlambda quote1.scm
   (apply (field 2 (global Oont!))
-    (makemutable 0 (apply (field 1 (global Oont!)) "c")
+    (makemutable 0 (apply (field 1 (global Oont!)) "a")
       (makemutable 0 (apply (field 1 (global Oont!)) "b")
-        (makemutable 0 (apply (field 1 (global Oont!)) "a")
+        (makemutable 0 (apply (field 1 (global Oont!)) "c")
           -4611686018427387900))))
 
   $ ./quote1.exe
-  (c . (b . (a . ())))
+  (a . (b . (c . ())))
 
   $ cat >quote2.scm <<EOF
   > '()
