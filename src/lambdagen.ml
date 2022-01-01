@@ -105,6 +105,7 @@ let rec comp_expr env { P.desc; loc = _ } =
   | Const (Const_int n) -> intv n
   | Const (Const_bool b) -> boolv b
   | Const Const_emptylist -> emptylist
+  | Const Const_undefined -> undefined
   | Apply (f, args) -> apply (comp_expr env f) (List.map (comp_expr env) args)
   | Var id ->
       let var = L.var (Map.find id.txt env.vars) in

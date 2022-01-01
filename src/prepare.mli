@@ -1,5 +1,10 @@
 type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop
-type constant = Const_bool of bool | Const_int of int | Const_emptylist
+
+type constant =
+  | Const_bool of bool
+  | Const_int of int
+  | Const_emptylist
+  | Const_undefined
 
 type expr_desc =
   | Const of constant

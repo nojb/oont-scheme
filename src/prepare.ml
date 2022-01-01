@@ -4,7 +4,11 @@ type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop
 
 module Env = Map.Make (String)
 
-type constant = Const_bool of bool | Const_int of int | Const_emptylist
+type constant =
+  | Const_bool of bool
+  | Const_int of int
+  | Const_emptylist
+  | Const_undefined
 
 type binding =
   | Evar of Ident.t
@@ -217,13 +221,39 @@ let or_syntax ~loc env el =
           })
         (parse_expr env e) el
 
+let when_syntax ~loc env = function
+  | e :: el ->
+      { desc = If (parse_expr env e, parse_expr_list env el, None); loc }
+  | [] -> failwith "when: bad syntax"
+
+let unless_syntax ~loc env = function
+  | e :: el ->
+      {
+        desc =
+          If
+            ( parse_expr env e,
+              { desc = Const Const_undefined; loc = Location.none },
+              Some (parse_expr_list env el) );
+        loc;
+      }
+  | [] -> failwith "unless: bad syntax"
+
 let initial_env =
-  Env.add "quote" (Esyntax quote_syntax)
-    (Env.add "and" (Esyntax and_syntax)
-       (Env.add "or" (Esyntax or_syntax)
-          (Env.add "set!" (Esyntax set_syntax)
-             (Env.add "let" (Esyntax let_syntax)
-                (Env.add "if" (Esyntax if_syntax)
-                   (Env.add "lambda" (Esyntax lambda_syntax)
-                      (Env.add "+" (Eprim Paddint)
-                         (Env.add "zero?" (Eprim Pzerop) Env.empty))))))))
+  let bindings =
+    [
+      ("quote", Esyntax quote_syntax);
+      ("and", Esyntax and_syntax);
+      ("or", Esyntax or_syntax);
+      ("when", Esyntax when_syntax);
+      ("unless", Esyntax unless_syntax);
+      ("set!", Esyntax set_syntax);
+      ("let", Esyntax let_syntax);
+      ("if", Esyntax if_syntax);
+      ("lambda", Esyntax lambda_syntax);
+      ("+", Eprim Paddint);
+      ("zero?", Eprim Pzerop);
+    ]
+  in
+  List.fold_left
+    (fun env (name, binding) -> Env.add name binding env)
+    Env.empty bindings
