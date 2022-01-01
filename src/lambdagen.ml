@@ -115,9 +115,16 @@ let rec comp_expr env { P.desc; loc = _ } =
       if_ (comp_expr env e1) (comp_expr env e2) e3
   | Prim (p, args) -> comp_primitive p (List.map (comp_expr env) args)
   | Lambda (args, _extra, body) ->
-      let args =
-        if args = [] then [ Ident.create_local "dummy" ]
-        else List.map (fun { Location.txt; _ } -> txt) args
+      let args, env =
+        if args = [] then ([ Ident.create_local "dummy" ], env)
+        else
+          let args =
+            List.map
+              (fun { Location.txt; _ } -> (txt, Ident.create_local "arg"))
+              args
+          in
+          ( List.map snd args,
+            List.fold_left (fun env (id, id1) -> add_var id id1 env) env args )
       in
       L.makeblock 4
         [
