@@ -1,6 +1,6 @@
 open Location
 
-type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop
+type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop | Psplice
 
 module Env = Map.Make (String)
 
@@ -46,6 +46,7 @@ let arity_of_primitive = function
   | Paddint -> Variadic 0
   | Papply -> Fixed 2
   | Pzerop -> Fixed 1
+  | Psplice -> Fixed 2
 
 let undefined = { desc = Const Const_undefined; loc = Location.none }
 
@@ -302,7 +303,10 @@ let quasiquote_syntax ~loc:_ env = function
             List.fold_left
               (fun cdr x ->
                 let loc = merge_loc x.Parser.loc cdr.loc in
-                cons ~loc (qq n x) cdr)
+                match x.Parser.desc with
+                | List [ { desc = Atom "unquote-splicing"; _ }; x ] ->
+                    prim ~loc Psplice [ parse_expr env x; cdr ]
+                | _ -> cons ~loc (qq n x) cdr)
               (const ~loc:Location.none Const_emptylist)
               (List.rev xs)
         | Atom s -> sym ~loc s

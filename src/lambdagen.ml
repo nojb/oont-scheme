@@ -72,6 +72,7 @@ let comp_primitive p args =
            (toint x) xs)
   | Pcons, [ car; cdr ] -> cons car cdr
   | Psym s, [] -> get_sym s
+  | Psplice, [ _x; _cdr ] -> failwith "splice"
   | _ -> invalid_arg "comp_primitive"
 
 module Map = Ident.Map

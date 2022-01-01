@@ -1,4 +1,4 @@
-type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop
+type primitive = Pcons | Psym of string | Paddint | Papply | Pzerop | Psplice
 
 type constant =
   | Const_bool of bool
