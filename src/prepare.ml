@@ -47,7 +47,7 @@ let rec parse_expr env { Parser.desc; loc } =
   match desc with
   | Bool b -> const ~loc (Const_bool b)
   | Int n -> const ~loc (Const_int n)
-  | Symbol s -> (
+  | Atom s -> (
       match Env.find_opt s env with
       | Some (Evar txt) -> { desc = Var { txt; loc }; loc }
       | Some (Esyntax _) -> failwith "bad syntax"
@@ -71,7 +71,7 @@ let rec parse_expr env { Parser.desc; loc } =
               }
           | Variadic _ -> assert false)
       | None -> failwith (Printf.sprintf "not found: %s" s))
-  | List ({ desc = Symbol s; loc = loc' } :: args) -> (
+  | List ({ desc = Atom s; loc = loc' } :: args) -> (
       match Env.find_opt s env with
       | Some (Evar id) ->
           {
@@ -114,7 +114,7 @@ let quote_syntax ~loc:_ _env = function
               (const ~loc:Location.none Const_emptylist)
               xs
         | Int n -> const ~loc (Const_int n)
-        | Symbol s -> sym ~loc s
+        | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
       in
       quote x
@@ -125,7 +125,7 @@ let lambda_syntax ~loc env = function
       let args =
         List.map
           (function
-            | { Parser.desc = Symbol arg; loc } ->
+            | { Parser.desc = Atom arg; loc } ->
                 (arg, Ident.create_local arg, loc)
             | _ -> assert false)
           args
@@ -137,7 +137,7 @@ let lambda_syntax ~loc env = function
       in
       let args = List.map (fun (_, id, loc) -> Location.mkloc id loc) args in
       { desc = Lambda (args, None, parse_expr_list env body); loc }
-  | { Parser.desc = Symbol args; loc = loc_args } :: body ->
+  | { Parser.desc = Atom args; loc = loc_args } :: body ->
       let id = Ident.create_local args in
       let env = Env.add args (Evar id) env in
       {
@@ -149,7 +149,7 @@ let lambda_syntax ~loc env = function
   | _ -> failwith "lambda: bad syntax"
 
 let set_syntax ~loc env = function
-  | [ { Parser.desc = Symbol s; loc = loc_sym }; e ] -> (
+  | [ { Parser.desc = Atom s; loc = loc_sym }; e ] -> (
       match Env.find_opt s env with
       | None -> failwith (Printf.sprintf "set!: not found: %s" s)
       | Some (Evar id) ->
@@ -164,7 +164,7 @@ let let_syntax ~loc env = function
         List.map
           (function
             | {
-                Parser.desc = List [ { Parser.desc = Symbol var; loc = _ }; e ];
+                Parser.desc = List [ { Parser.desc = Atom var; loc = _ }; e ];
                 loc = _;
               } ->
                 (var, Ident.create_local var, parse_expr env e)

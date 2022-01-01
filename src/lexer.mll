@@ -1,12 +1,12 @@
 {
 type desc =
-  | INT of string
-  | LPAREN
-  | RPAREN
-  | QUOTE
-  | SYMBOL of string
-  | FALSE
-  | TRUE
+  | Int of string
+  | Lparen
+  | Rparen
+  | Quote
+  | Atom of string
+  | False
+  | True
 
 type token =
   {
@@ -31,19 +31,19 @@ rule token = parse
 | '\n'
     { Lexing.new_line lexbuf; token lexbuf }
 | '('
-    { mk lexbuf LPAREN }
+    { mk lexbuf Lparen }
 | ')'
-    { mk lexbuf RPAREN }
+    { mk lexbuf Rparen }
 | '\''
-    { mk lexbuf QUOTE }
+    { mk lexbuf Quote }
 | "#f"
-    { mk lexbuf FALSE }
+    { mk lexbuf False }
 | "#t"
-    { mk lexbuf TRUE }
+    { mk lexbuf True }
 | ['0'-'9']+ as s
-    { mk lexbuf (INT s) }
+    { mk lexbuf (Int s) }
 | ['a'-'z''+''?''!']+ as s
-    { mk lexbuf (SYMBOL s) }
+    { mk lexbuf (Atom s) }
 | ';' [^'\n']*
     { token lexbuf }
 | "#|"

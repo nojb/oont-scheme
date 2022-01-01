@@ -1,4 +1,4 @@
-type desc = List of sexp list | Symbol of string | Int of int | Bool of bool
+type desc = List of sexp list | Atom of string | Int of int | Bool of bool
 and sexp = { desc : desc; loc : Location.t }
 
 val print_sexp : Format.formatter -> sexp -> unit
