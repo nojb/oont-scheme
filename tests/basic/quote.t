@@ -22,6 +22,9 @@
   ()
 
   $ cat >quote3.scm <<EOF
+  > #|
+  >   This is a test.
+  > |#
   > '(#f #t #f)
   > EOF
 
