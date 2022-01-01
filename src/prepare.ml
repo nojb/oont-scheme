@@ -182,11 +182,48 @@ let let_syntax ~loc env = function
         bindings (parse_expr_list env body)
   | _ -> failwith "let: bad syntax"
 
+let and_syntax ~loc env el =
+  match List.rev el with
+  | [] -> { desc = Const (Const_bool true); loc }
+  | e :: el ->
+      List.fold_left
+        (fun accu e ->
+          {
+            desc =
+              If
+                ( parse_expr env e,
+                  accu,
+                  Some { desc = Const (Const_bool false); loc = Location.none }
+                );
+            loc = Location.none;
+          })
+        (parse_expr env e) el
+
+let or_syntax ~loc env el =
+  match List.rev el with
+  | [] -> { desc = Const (Const_bool false); loc }
+  | e :: el ->
+      List.fold_left
+        (fun accu e ->
+          let id = Ident.create_local "or" in
+          let var = { desc = Var (Location.mknoloc id); loc = Location.none } in
+          {
+            desc =
+              Let
+                ( id,
+                  parse_expr env e,
+                  { desc = If (var, var, Some accu); loc = Location.none } );
+            loc = Location.none;
+          })
+        (parse_expr env e) el
+
 let initial_env =
   Env.add "quote" (Esyntax quote_syntax)
-    (Env.add "set!" (Esyntax set_syntax)
-       (Env.add "let" (Esyntax let_syntax)
-          (Env.add "if" (Esyntax if_syntax)
-             (Env.add "lambda" (Esyntax lambda_syntax)
-                (Env.add "+" (Eprim Paddint)
-                   (Env.add "zero?" (Eprim Pzerop) Env.empty))))))
+    (Env.add "and" (Esyntax and_syntax)
+       (Env.add "or" (Esyntax or_syntax)
+          (Env.add "set!" (Esyntax set_syntax)
+             (Env.add "let" (Esyntax let_syntax)
+                (Env.add "if" (Esyntax if_syntax)
+                   (Env.add "lambda" (Esyntax lambda_syntax)
+                      (Env.add "+" (Eprim Paddint)
+                         (Env.add "zero?" (Eprim Pzerop) Env.empty))))))))
