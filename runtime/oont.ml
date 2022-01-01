@@ -62,6 +62,15 @@ let rec print ppf x =
         let car = Obj.field x 0 in
         let cdr = Obj.field x 1 in
         Format.fprintf ppf "@[<1>(%a .@ %a)@]" print car print cdr
+    | 1 ->
+        (* vector *)
+        let print ppf x =
+          for i = 0 to Obj.size x - 1 do
+            if i > 0 then Format.pp_print_space ppf ();
+            print ppf (Obj.field x i)
+          done
+        in
+        Format.fprintf ppf "@[<2>#(%a)@]" print x
     | 3 -> Format.pp_print_string ppf (Obj.obj (Obj.field x 0))
     | 4 ->
         (* procedure *)
