@@ -35,4 +35,4 @@ and expr = { desc : expr_desc; loc : Location.t }
 type env
 
 val initial_env : env
-val parse_sexp_list : env -> Parser.sexp list -> expr
+val parse_toplevel : env -> Parser.sexp list -> expr

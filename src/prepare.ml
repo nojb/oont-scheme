@@ -50,6 +50,10 @@ let cons ~loc car cdr = prim ~loc Pcons [ car; cdr ]
 let const ~loc c = mk (Const c) loc
 let sym ~loc s = prim ~loc (Psym s) []
 
+let check_unique f l =
+  let l = List.map f l in
+  List.compare_lengths (List.sort_uniq compare l) l = 0
+
 let merge_loc { Location.loc_start; _ } { Location.loc_end; _ } =
   { Location.loc_start; loc_end; loc_ghost = false }
 
@@ -127,10 +131,10 @@ and parse_sexp_list env = function
   | sexp :: sexpl ->
       mk (Cseq (parse_sexp env sexp, parse_sexp_list env sexpl)) Location.none
 
-and begin_syntax ~loc:_ env sexpl = parse_sexp_list env sexpl
-and define_syntax ~loc:_ _env _sexpl = failwith "define: not allowed here"
+let begin_syntax ~loc:_ env sexpl = parse_sexp_list env sexpl
+let define_syntax ~loc:_ _env _sexpl = failwith "define: not allowed here"
 
-and expand_begin env sexpl =
+let rec expand_begin env sexpl =
   let expand = function
     | { sexp_desc = List ({ sexp_desc = Atom s; _ } :: sexpl); _ } as sexp -> (
         match Env.find_opt s env with
@@ -140,7 +144,7 @@ and expand_begin env sexpl =
   in
   List.flatten (List.map expand sexpl)
 
-and is_define env = function
+let is_define env = function
   | { sexp_desc = List ({ sexp_desc = Atom s; _ } :: sexpl); _ } -> (
       match Env.find_opt s env with
       | Some (Esyntax f) when f == define_syntax -> (
@@ -161,7 +165,37 @@ and is_define env = function
       | _ -> None)
   | _ -> None
 
-and parse_body env sexpl =
+let parse_toplevel env sexpl =
+  let sexpl = expand_begin env sexpl in
+  let rec aux env = function
+    | sexp :: sexpl -> (
+        match is_define env sexp with
+        | Some (s, def) -> (
+            let def env =
+              match def with
+              | `Var e -> parse_sexp env e
+              | `Lambda (_args, _body) -> assert false
+            in
+            match Env.find_opt s env with
+            | None | Some (Esyntax _) | Some (Eprim _) ->
+                let id = Ident.create_local s in
+                let env = Env.add s (Evar id) env in
+                mk (Let (id, def env, aux env sexpl)) Location.none
+            | Some (Evar id) ->
+                mk
+                  (Cseq
+                     ( mk (Assign (Location.mknoloc id, def env)) Location.none,
+                       aux env sexpl ))
+                  Location.none)
+        | None ->
+            let e = parse_sexp env sexp in
+            if sexpl = [] then e else mk (Cseq (e, aux env sexpl)) Location.none
+        )
+    | [] -> const ~loc:Location.none Const_undefined
+  in
+  aux env sexpl
+
+let parse_body env sexpl =
   let rec aux = function
     | [] -> ([], [])
     | sexp :: sexpl as sexpl' -> (
@@ -172,6 +206,8 @@ and parse_body env sexpl =
         | None -> ([], sexpl'))
   in
   let defs, sexpl = aux (expand_begin env sexpl) in
+  if not (check_unique (fun (s, _) -> s) defs) then
+    failwith "body: multiple define";
   let defs = List.map (fun (s, def) -> (s, Ident.create_local s, def)) defs in
   let env =
     List.fold_left (fun env (s, id, _) -> Env.add s (Evar id) env) env defs
