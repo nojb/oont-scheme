@@ -101,13 +101,14 @@ let rec assigned_vars e =
   | If (e1, e2, e3) ->
       Set.union (assigned_vars e1)
         (Set.union (assigned_vars e2) (assigned_vars e3))
-  | Prim (_, el) | Begin el ->
+  | Prim (_, el) ->
       List.fold_left
         (fun accu e -> Set.union accu (assigned_vars e))
         Set.empty el
   | Lambda (_, _, body) -> assigned_vars body
   | Assign ({ txt = id; _ }, e) -> Set.add id (assigned_vars e)
-  | Let (_, e1, e2) -> Set.union (assigned_vars e1) (assigned_vars e2)
+  | Cseq (e1, e2) | Let (_, e1, e2) ->
+      Set.union (assigned_vars e1) (assigned_vars e2)
 
 type env = { vars : Ident.t Map.t; assigned_vars : Set.t }
 
@@ -145,11 +146,7 @@ let rec comp_expr env { P.desc; loc } =
           L.string "";
           L.func args (comp_expr env body);
         ]
-  | Begin [] -> undefined
-  | Begin (e :: es) ->
-      List.fold_left
-        (fun accu e -> L.seq accu (comp_expr env e))
-        (comp_expr env e) es
+  | Cseq (e1, e2) -> L.seq (comp_expr env e1) (comp_expr env e2)
   | Assign (id, e) ->
       L.setfield 0 (L.var (Map.find id.txt env.vars)) (comp_expr env e)
   | Let (id, e1, e2) ->

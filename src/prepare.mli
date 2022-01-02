@@ -25,7 +25,7 @@ type expr_desc =
   | If of expr * expr * expr
   | Prim of primitive * expr list
   | Lambda of Ident.t Location.loc list * Ident.t Location.loc option * expr
-  | Begin of expr list
+  | Cseq of expr * expr
   | Assign of Ident.t Location.loc * expr
   | Let of Ident.t * expr * expr
 

@@ -34,7 +34,7 @@ and expr_desc =
   | If of expr * expr * expr
   | Prim of primitive * expr list
   | Lambda of Ident.t loc list * Ident.t loc option * expr
-  | Begin of expr list
+  | Cseq of expr * expr
   | Assign of Ident.t loc * expr
   | Let of Ident.t * expr * expr
 
@@ -123,8 +123,14 @@ let rec parse_expr env { Parser.desc; loc } =
   | List (f :: args) ->
       { desc = Apply (parse_expr env f, List.map (parse_expr env) args); loc }
 
-and parse_expr_list env xs =
-  { desc = Begin (List.map (parse_expr env) xs); loc = Location.none }
+and parse_expr_list env = function
+  | [] -> const ~loc:Location.none Const_undefined
+  | [ sexp ] -> parse_expr env sexp
+  | sexp :: sexpl ->
+      {
+        desc = Cseq (parse_expr env sexp, parse_expr_list env sexpl);
+        loc = Location.none;
+      }
 
 let if_syntax ~loc env = function
   | [ x1; x2 ] ->
