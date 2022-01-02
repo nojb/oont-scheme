@@ -48,6 +48,7 @@ module T : sig
   val is_block : t -> bool
   val to_immediate : t -> immediate
   val to_block : t -> block
+  val of_block : block -> t
   val to_int : t -> int
   val to_char : t -> Uchar.t
   val get_sym : string -> t
@@ -105,6 +106,7 @@ end = struct
   let to_int t : int = Obj.obj t
   let to_char t = Uchar.unsafe_of_int ((Obj.obj t : int) lsr 3)
   let to_block t : block = Obj.obj t
+  let of_block (t : block) = Obj.repr t
   let pair car cdr = Obj.repr (Pair { car; cdr })
   let vector arr = Obj.repr (Vector arr)
 
@@ -248,3 +250,13 @@ let vector_append vectors =
   loop 0 vectors
 
 let apply _ _ = assert false
+
+let error msg irritants =
+  raise
+    (Error (T.of_block (Error { msg; irritants = Array.of_list irritants })))
+
+let scheme_vector_length t =
+  let err () = error "vector-length: argument error" [ t ] in
+  if is_block t then
+    match to_block t with Vector arr -> int (Array.length arr) | _ -> err ()
+  else err ()

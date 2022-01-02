@@ -28,3 +28,15 @@
   Fatal error: exception Oont.Error(_)
   Raised at ?? in file "_none_", line 0, characters -1--1
   [2]
+
+  $ cat >err2.scm <<EOF
+  > (external vector-length 1 "scheme_vector_length")
+  > (vector-length #(1 2 3))
+  > EOF
+
+  $ oont -dlambda err2.scm
+  (apply (field 7 (global Oont!))
+    (apply (field 12 (global Oont!)) (makeblock 1 (makeblock 0 1 2 3))))
+
+  $ ./err2.exe
+  3
