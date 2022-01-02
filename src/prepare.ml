@@ -134,23 +134,23 @@ let if_syntax ~loc env = function
   | _ -> failwith "if: bad syntax"
 
 let quote_syntax ~loc:_ _env = function
-  | [ x ] ->
+  | [ sexp ] ->
       let rec quote { sexp_desc; sexp_loc = loc } =
         match sexp_desc with
-        | List xs ->
+        | List sexpl ->
             List.fold_left
-              (fun cdr x ->
-                let loc = merge_loc x.sexp_loc cdr.loc in
-                cons ~loc (quote x) cdr)
+              (fun cdr sexp ->
+                let loc = merge_loc sexp.sexp_loc cdr.loc in
+                cons ~loc (quote sexp) cdr)
               (const ~loc:Location.none Const_emptylist)
-              (List.rev xs)
+              (List.rev sexpl)
         | Int n -> const ~loc (Const_int n)
         | Atom s -> sym ~loc s
         | Bool b -> const ~loc (Const_bool b)
         | Vector sexpl -> prim ~loc Pvector (List.map quote sexpl)
         | String s -> const ~loc (Const_string s)
       in
-      quote x
+      quote sexp
   | _ -> failwith "quote: bad syntax"
 
 let lambda_syntax ~loc env = function
