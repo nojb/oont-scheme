@@ -2,6 +2,7 @@ module P = Prepare
 module L = Lambda_helper
 
 let cons_tag = 0
+let string_tag = 2
 let procedure_tag = 5
 let error_tag = 6
 let msb = 1 lsl (Sys.word_size - 2)
@@ -10,7 +11,7 @@ let truev = L.const Oont.true_
 let intv n = L.const (Oont.int n)
 let untag_int n = n
 let tag_int n = L.andint n (L.int (lnot msb))
-let stringv ~loc s = L.makeblock 2 [ L.string ~loc s ]
+let stringv ~loc s = L.makeblock string_tag [ L.string ~loc s ]
 let emptylist = L.const Oont.emptylist
 let undefined = L.const Oont.undefined
 let prim name = L.value "Oont" name
