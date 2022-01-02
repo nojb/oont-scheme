@@ -1,4 +1,5 @@
 open Location
+open Parser
 
 type primitive =
   | Pcons
@@ -12,6 +13,7 @@ type primitive =
   | Pvector
   | Plist
   | Pvectoroflist
+  | Pcall of int * string
 
 module Env = Map.Make (String)
 
@@ -42,9 +44,10 @@ and expr = { desc : expr_desc; loc : Location.t }
 
 type env = binding Env.t
 
-let prim ~loc p args = { desc = Prim (p, args); loc }
+let mk desc loc = { desc; loc }
+let prim ~loc p args = mk (Prim (p, args)) loc
 let cons ~loc car cdr = prim ~loc Pcons [ car; cdr ]
-let const ~loc c = { desc = Const c; loc }
+let const ~loc c = mk (Const c) loc
 let sym ~loc s = prim ~loc (Psym s) []
 
 let merge_loc { Location.loc_start; _ } { Location.loc_end; _ } =
@@ -64,18 +67,19 @@ let arity_of_primitive = function
   | Pvector -> Variadic 0
   | Plist -> Variadic 0
   | Pvectoroflist -> Fixed 1
+  | Pcall (n, _) -> if n >= 0 then Fixed n else Variadic (-(n + 1))
 
-let undefined = { desc = Const Const_undefined; loc = Location.none }
+let undefined = const ~loc:Location.none Const_undefined
 
-let rec parse_expr env { Parser.desc; loc } =
-  match desc with
+let rec parse_sexp env { sexp_desc; sexp_loc = loc } =
+  match sexp_desc with
   | Bool b -> const ~loc (Const_bool b)
   | Int n -> const ~loc (Const_int n)
   | String s -> const ~loc (Const_string s)
-  | Vector sexpl -> prim ~loc Pvector (List.map (parse_expr env) sexpl)
+  | Vector sexpl -> prim ~loc Pvector (List.map (parse_sexp env) sexpl)
   | Atom s -> (
       match Env.find_opt s env with
-      | Some (Evar txt) -> { desc = Var { txt; loc }; loc }
+      | Some (Evar txt) -> mk (Var { txt; loc }) loc
       | Some (Esyntax _) -> failwith "bad syntax"
       | Some (Eprim p) -> (
           match arity_of_primitive p with
@@ -84,29 +88,23 @@ let rec parse_expr env { Parser.desc; loc } =
                 List.init n (fun _ ->
                     Location.mknoloc (Ident.create_local "arg"))
               in
-              {
-                desc =
-                  Lambda
-                    ( args,
-                      None,
-                      prim ~loc p
-                        (List.map
-                           (fun id -> { desc = Var id; loc = Location.none })
-                           args) );
-                loc;
-              }
+              mk
+                (Lambda
+                   ( args,
+                     None,
+                     prim ~loc p
+                       (List.map (fun id -> mk (Var id) Location.none) args) ))
+                loc
           | Variadic _ -> assert false)
       | None -> failwith (Printf.sprintf "not found: %s" s))
-  | List ({ desc = Atom s; loc = loc' } :: args) -> (
+  | List ({ sexp_desc = Atom s; sexp_loc = loc' } :: args) -> (
       match Env.find_opt s env with
       | Some (Evar id) ->
-          {
-            desc =
-              Apply
-                ( { desc = Var (Location.mkloc id loc'); loc = loc' },
-                  List.map (parse_expr env) args );
-            loc;
-          }
+          mk
+            (Apply
+               ( mk (Var (Location.mkloc id loc')) loc',
+                 List.map (parse_sexp env) args ))
+            loc
       | Some (Esyntax f) -> f ~loc env args
       | Some (Eprim p) ->
           (match arity_of_primitive p with
@@ -117,39 +115,32 @@ let rec parse_expr env { Parser.desc; loc } =
               let n = -n - 1 in
               if List.compare_length_with args n < 0 then
                 failwith "arity mismatch");
-          prim ~loc p (List.map (parse_expr env) args)
+          prim ~loc p (List.map (parse_sexp env) args)
       | None -> failwith (Printf.sprintf "not_found: %s" s))
   | List [] -> failwith "(): bad syntax"
   | List (f :: args) ->
-      { desc = Apply (parse_expr env f, List.map (parse_expr env) args); loc }
+      mk (Apply (parse_sexp env f, List.map (parse_sexp env) args)) loc
 
-and parse_expr_list env = function
+and parse_sexp_list env = function
   | [] -> const ~loc:Location.none Const_undefined
-  | [ sexp ] -> parse_expr env sexp
+  | [ sexp ] -> parse_sexp env sexp
   | sexp :: sexpl ->
-      {
-        desc = Cseq (parse_expr env sexp, parse_expr_list env sexpl);
-        loc = Location.none;
-      }
+      mk (Cseq (parse_sexp env sexp, parse_sexp_list env sexpl)) Location.none
 
 let if_syntax ~loc env = function
-  | [ x1; x2 ] ->
-      { desc = If (parse_expr env x1, parse_expr env x2, undefined); loc }
+  | [ x1; x2 ] -> mk (If (parse_sexp env x1, parse_sexp env x2, undefined)) loc
   | [ x1; x2; x3 ] ->
-      {
-        desc = If (parse_expr env x1, parse_expr env x2, parse_expr env x3);
-        loc;
-      }
+      mk (If (parse_sexp env x1, parse_sexp env x2, parse_sexp env x3)) loc
   | _ -> failwith "if: bad syntax"
 
 let quote_syntax ~loc:_ _env = function
   | [ x ] ->
-      let rec quote { Parser.desc; loc } =
-        match desc with
+      let rec quote { sexp_desc; sexp_loc = loc } =
+        match sexp_desc with
         | List xs ->
             List.fold_left
               (fun cdr x ->
-                let loc = merge_loc x.Parser.loc cdr.loc in
+                let loc = merge_loc x.sexp_loc cdr.loc in
                 cons ~loc (quote x) cdr)
               (const ~loc:Location.none Const_emptylist)
               (List.rev xs)
@@ -163,11 +154,11 @@ let quote_syntax ~loc:_ _env = function
   | _ -> failwith "quote: bad syntax"
 
 let lambda_syntax ~loc env = function
-  | { Parser.desc = List args; loc = _ } :: body ->
+  | { sexp_desc = List args; sexp_loc = _ } :: body ->
       let args =
         List.map
           (function
-            | { Parser.desc = Atom arg; loc } ->
+            | { sexp_desc = Atom arg; sexp_loc = loc } ->
                 (arg, Ident.create_local arg, loc)
             | _ -> assert false)
           args
@@ -178,38 +169,35 @@ let lambda_syntax ~loc env = function
           env args
       in
       let args = List.map (fun (_, id, loc) -> Location.mkloc id loc) args in
-      { desc = Lambda (args, None, parse_expr_list env body); loc }
-  | { Parser.desc = Atom args; loc = loc_args } :: body ->
+      mk (Lambda (args, None, parse_sexp_list env body)) loc
+  | { sexp_desc = Atom args; sexp_loc = loc_args } :: body ->
       let id = Ident.create_local args in
       let env = Env.add args (Evar id) env in
-      {
-        desc =
-          Lambda
-            ([], Some (Location.mkloc id loc_args), parse_expr_list env body);
-        loc;
-      }
+      mk
+        (Lambda ([], Some (Location.mkloc id loc_args), parse_sexp_list env body))
+        loc
   | _ -> failwith "lambda: bad syntax"
 
 let set_syntax ~loc env = function
-  | [ { Parser.desc = Atom s; loc = loc_sym }; e ] -> (
+  | [ { sexp_desc = Atom s; sexp_loc = loc_sym }; e ] -> (
       match Env.find_opt s env with
       | None -> failwith (Printf.sprintf "set!: not found: %s" s)
       | Some (Evar id) ->
-          { desc = Assign (Location.mkloc id loc_sym, parse_expr env e); loc }
+          mk (Assign (Location.mkloc id loc_sym, parse_sexp env e)) loc
       | Some (Esyntax _) -> failwith "set!: cannot modify syntax"
       | Some (Eprim _) -> failwith "set!: cannot modify primitive")
   | _ -> failwith "set!: bad syntax"
 
 let let_syntax ~loc env = function
-  | { Parser.desc = List bindings; loc = _ } :: body ->
+  | { sexp_desc = List bindings; sexp_loc = _ } :: body ->
       let bindings =
         List.map
           (function
             | {
-                Parser.desc = List [ { Parser.desc = Atom var; loc = _ }; e ];
-                loc = _;
+                sexp_desc = List [ { sexp_desc = Atom var; sexp_loc = _ }; e ];
+                sexp_loc = _;
               } ->
-                (var, Ident.create_local var, parse_expr env e)
+                (var, Ident.create_local var, parse_sexp env e)
             | _ -> failwith "let: bad syntax")
           bindings
       in
@@ -219,109 +207,82 @@ let let_syntax ~loc env = function
           env bindings
       in
       List.fold_right
-        (fun (_, id, e) body -> { desc = Let (id, e, body); loc })
+        (fun (_, id, e) body -> mk (Let (id, e, body)) loc)
         (* FIXME loc *)
-        bindings (parse_expr_list env body)
+        bindings (parse_sexp_list env body)
   | _ -> failwith "let: bad syntax"
 
 let and_syntax ~loc env el =
   match List.rev el with
-  | [] -> { desc = Const (Const_bool true); loc }
+  | [] -> const ~loc (Const_bool true)
   | e :: el ->
       List.fold_left
         (fun accu e ->
-          {
-            desc =
-              If
-                ( parse_expr env e,
-                  accu,
-                  { desc = Const (Const_bool false); loc = Location.none } );
-            loc = Location.none;
-          })
-        (parse_expr env e) el
+          mk
+            (If
+               ( parse_sexp env e,
+                 accu,
+                 const ~loc:Location.none (Const_bool false) ))
+            Location.none)
+        (parse_sexp env e) el
 
 let or_syntax ~loc env el =
   match List.rev el with
-  | [] -> { desc = Const (Const_bool false); loc }
+  | [] -> const ~loc (Const_bool false)
   | e :: el ->
       List.fold_left
         (fun accu e ->
           let id = Ident.create_local "or" in
-          let var = { desc = Var (Location.mknoloc id); loc = Location.none } in
-          {
-            desc =
-              Let
-                ( id,
-                  parse_expr env e,
-                  { desc = If (var, var, accu); loc = Location.none } );
-            loc = Location.none;
-          })
-        (parse_expr env e) el
+          let var = mk (Var (Location.mknoloc id)) Location.none in
+          mk
+            (Let (id, parse_sexp env e, mk (If (var, var, accu)) Location.none))
+            Location.none)
+        (parse_sexp env e) el
 
 let when_syntax ~loc env = function
-  | e :: el ->
-      { desc = If (parse_expr env e, parse_expr_list env el, undefined); loc }
+  | e :: el -> mk (If (parse_sexp env e, parse_sexp_list env el, undefined)) loc
   | [] -> failwith "when: bad syntax"
 
 let unless_syntax ~loc env = function
-  | e :: el ->
-      { desc = If (parse_expr env e, undefined, parse_expr_list env el); loc }
+  | e :: el -> mk (If (parse_sexp env e, undefined, parse_sexp_list env el)) loc
   | [] -> failwith "unless: bad syntax"
 
 let cond_syntax ~loc:_ env clauses =
   let rec aux = function
     | [
         {
-          Parser.desc = List ({ desc = Atom "else"; loc = _ } :: rest);
-          loc = _;
+          sexp_desc = List ({ sexp_desc = Atom "else"; sexp_loc = _ } :: rest);
+          sexp_loc = _;
         };
       ] ->
-        parse_expr_list env rest
-    | { desc = List (test :: body); loc = _ } :: clauses -> (
-        let test = parse_expr env test in
+        parse_sexp_list env rest
+    | { sexp_desc = List (test :: body); sexp_loc = _ } :: clauses -> (
+        let test = parse_sexp env test in
         let else_ = aux clauses in
         match body with
         | [] ->
             let id = Ident.create_local "cond" in
-            let var =
-              { desc = Var (Location.mknoloc id); loc = Location.none }
-            in
-            {
-              desc =
-                Let
-                  ( id,
-                    test,
-                    { desc = If (var, var, else_); loc = Location.none } );
-              loc = Location.none;
-            }
-        | [ { desc = Atom "=>"; loc = _ }; body ] ->
+            let var = mk (Var (Location.mknoloc id)) Location.none in
+            mk
+              (Let (id, test, mk (If (var, var, else_)) Location.none))
+              Location.none
+        | [ { sexp_desc = Atom "=>"; sexp_loc = _ }; body ] ->
             let id = Ident.create_local "cond" in
-            let var =
-              { desc = Var (Location.mknoloc id); loc = Location.none }
-            in
-            {
-              desc =
-                Let
-                  ( id,
-                    test,
-                    {
-                      desc =
-                        If
-                          ( var,
-                            {
-                              desc = Apply (parse_expr env body, [ var ]);
-                              loc = Location.none;
-                            },
-                            else_ );
-                      loc = Location.none;
-                    } );
-              loc = Location.none;
-            }
-        | body ->
-            {
-              desc = If (test, parse_expr_list env body, else_);
-              loc = Location.none;
-            })
+            let var = mk (Var (Location.mknoloc id)) Location.none in
+            mk
+              (Let
+                 ( id,
+                   test,
+                   mk
+                     (If
+                        ( var,
+                          mk
+                            (Apply (parse_sexp env body, [ var ]))
+                            Location.none,
+                          else_ ))
+                     Location.none ))
+              Location.none
+        | body -> mk (If (test, parse_sexp_list env body, else_)) Location.none)
     | [] -> undefined
     | _ -> failwith "cond: bad syntax"
   in
@@ -330,20 +291,20 @@ let cond_syntax ~loc:_ env clauses =
 let quasiquote_syntax ~loc:_ env = function
   | [ x ] ->
       let rec qq n x =
-        let loc = x.Parser.loc in
-        match x.Parser.desc with
-        | List [ { desc = Atom "quasiquote"; loc = loc_sym }; x ] ->
+        let loc = x.sexp_loc in
+        match x.sexp_desc with
+        | List [ { sexp_desc = Atom "quasiquote"; sexp_loc = loc_sym }; x ] ->
             prim ~loc Pcons [ sym ~loc:loc_sym "quasiquote"; qq (n + 1) x ]
-        | List [ { desc = Atom "unquote"; loc = loc_comma }; x ] ->
-            if n = 0 then parse_expr env x
+        | List [ { sexp_desc = Atom "unquote"; sexp_loc = loc_comma }; x ] ->
+            if n = 0 then parse_sexp env x
             else prim ~loc Pcons [ sym ~loc:loc_comma "unquote"; qq (n - 1) x ]
         | List sexpl ->
             List.fold_left
               (fun cdr x ->
-                let loc = merge_loc x.Parser.loc cdr.loc in
-                match x.Parser.desc with
-                | List [ { desc = Atom "unquote-splicing"; _ }; x ] ->
-                    prim ~loc Pappend [ parse_expr env x; cdr ]
+                let loc = merge_loc x.sexp_loc cdr.loc in
+                match x.sexp_desc with
+                | List [ { sexp_desc = Atom "unquote-splicing"; _ }; x ] ->
+                    prim ~loc Pappend [ parse_sexp env x; cdr ]
                 | _ -> cons ~loc (qq n x) cdr)
               (const ~loc:Location.none Const_emptylist)
               (List.rev sexpl)
@@ -352,16 +313,15 @@ let quasiquote_syntax ~loc:_ env = function
               let rec aux accu = function
                 | [] -> [ prim ~loc Pvector (List.rev accu) ]
                 | {
-                    Parser.desc =
-                      List
-                        [ { Parser.desc = Atom "unquote-splicing"; _ }; sexp ];
+                    sexp_desc =
+                      List [ { sexp_desc = Atom "unquote-splicing"; _ }; sexp ];
                     _;
                   }
                   :: sexpl ->
                     prim ~loc Pvector (List.rev accu)
-                    :: prim ~loc Pvectoroflist [ parse_expr env sexp ]
+                    :: prim ~loc Pvectoroflist [ parse_sexp env sexp ]
                     :: aux [] sexpl
-                | sexp :: sexpl -> aux (parse_expr env sexp :: accu) sexpl
+                | sexp :: sexpl -> aux (parse_sexp env sexp :: accu) sexpl
               in
               aux [] sexpl
             in
@@ -378,7 +338,7 @@ let include_syntax ~loc:_ _env args =
   let _filenames =
     List.map
       (function
-        | { Parser.desc = String s; loc } -> Location.mkloc s loc
+        | { sexp_desc = String s; sexp_loc } -> Location.mkloc s sexp_loc
         | _ -> failwith "include: bad syntax")
       args
   in

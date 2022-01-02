@@ -5,24 +5,24 @@
 
   $ oont -dlambda lambda1.scm
   (apply (field 7 (global Oont!))
-    (seq (makeblock 5 1 "" (function dummy/3 12))
-      (let (let/5 = (makeblock 5 1 "" (function dummy/4 12)))
+    (seq (makeblock 5 1 "" (function dummy/7 12))
+      (let (let/4 = (makeblock 5 1 "" (function dummy/3 12)))
         (seq
-          (if (isint let/5)
+          (if (isint let/4)
             (raise
               (makeblock 0 (field 0 (global Oont!))
-                (makeblock 6 "Type error" (makeblock 0 let/5))))
+                (makeblock 6 "Type error" (makeblock 0 let/4))))
             0)
-          (switch let/5
+          (switch let/4
            case tag 5:
-            (if (== 1 (field 0 let/5)) (apply (field 2 let/5) 0)
+            (if (== 1 (field 0 let/4)) (apply (field 2 let/4) 0)
               (raise
                 (makeblock 0 (field 0 (global Oont!))
-                  (makeblock 6 "Type error" (makeblock 0 let/5)))))
+                  (makeblock 6 "Type error" (makeblock 0 let/4)))))
            default:
             (raise
               (makeblock 0 (field 0 (global Oont!))
-                (makeblock 6 "Type error" (makeblock 0 let/5)))))))))
+                (makeblock 6 "Type error" (makeblock 0 let/4)))))))))
 
   $ ./lambda1.exe
   12

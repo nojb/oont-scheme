@@ -85,6 +85,7 @@ let comp_primitive p args =
   | Pvectorappend, el ->
       L.apply (prim "vector_append") [ List.fold_left cons (L.int 0) el ]
   | Papply, [ f; args ] -> L.apply (prim "apply") [ f; args ]
+  | Pcall (_, s), _ -> L.apply (prim s) args
   | (Pzerop | Pcons | Psym _ | Peq | Pvectoroflist | Papply), _ ->
       invalid_arg "comp_primitive"
 

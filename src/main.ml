@@ -40,7 +40,7 @@ let parse_file fname =
 
 let process_file fname =
   let sexps = parse_file fname in
-  let e = P.parse_expr_list P.initial_env sexps in
+  let e = P.parse_sexp_list P.initial_env sexps in
   let lam = Lambdagen.comp_expr e in
   let lam = L.apply (Lambdagen.prim "print") [ lam ] in
   if !drawlambda then Format.eprintf "@[%a@]@." Printlambda.lambda lam;
