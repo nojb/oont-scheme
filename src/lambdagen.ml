@@ -15,7 +15,7 @@ let boolv b = if b then truev else falsev
 let tag_bool x = L.ifthenelse x truev falsev
 let error_exn = lazy (L.extension_constructor "Oont" "Error")
 let cons car cdr = L.makemutable 0 [ car; cdr ]
-let errorv ~loc s objs = L.makeblock 5 (L.string ~loc s :: objs)
+let errorv ~loc s objs = L.makeblock 6 [ L.string ~loc s; L.makeblock 0 objs ]
 
 let type_error obj =
   L.raise
@@ -51,9 +51,9 @@ let apply f args =
       in
       L.seq
         (L.ifthenelse (L.isint f) (type_error f) (L.int 0))
-        (L.block_switch f [ (4, doit) ] (Some (type_error f))))
+        (L.block_switch f [ (5, doit) ] (Some (type_error f))))
 
-let get_sym s = L.apply (prim "sym") [ L.string s ]
+let get_sym s = L.apply (prim "get_sym") [ L.string s ]
 
 let comp_primitive p args =
   match (p, args) with
@@ -73,7 +73,7 @@ let comp_primitive p args =
   | Psym s, [] -> get_sym s
   | Pappend, el -> L.apply (prim "append") [ List.fold_left cons (L.int 0) el ]
   | Peq, [ e1; e2 ] -> L.eq e1 e2
-  | Pvector, el -> L.makeblock 1 el
+  | Pvector, el -> L.makeblock 1 [ L.makeblock 0 el ]
   | Plist, el -> List.fold_left cons emptylist (List.rev el)
   | Pvectoroflist, [ e ] -> L.apply (prim "list_to_vector") [ e ]
   | Pvectorappend, el ->
@@ -133,7 +133,7 @@ let rec comp_expr env { P.desc; loc } =
           ( List.map snd args,
             List.fold_left (fun env (id, id1) -> add_var id id1 env) env args )
       in
-      L.makeblock 4
+      L.makeblock 5
         [
           L.int (List.length args);
           L.string "";

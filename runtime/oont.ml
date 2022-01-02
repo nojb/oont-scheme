@@ -11,85 +11,151 @@ undefined             immediate               msb 1, 0b110
 eof                   immediate               msb 1, 0b101
 char                  immediate               msb 1, 0b111
 pair                  block                   tag 0, size 2
-vector                block                   tag 1, size n
-string                block                   tag 2, size 1: name
-symbol                block                   tag 3, size 1: name
-bytevector            block                   bytes
-procedure             block                   tag 4, size 3: arity, name, closure
+vector                block                   tag 1, size 1 (array)
+string                block                   tag 2, size 1 (mutable, bytes)
+symbol                block                   tag 3, size 1 (bytes)
+bytevector            block                   tag 4, size 1 (bytes)
+procedure             block                   tag 5, size 3 (arity, name, closure)
                                               (arity is -(1+n) if variadic with n fixed arguments)
-error                 block                   tag 5, size 1 + n: name, irritants
+error                 block                   tag 6, size 2 (name, array of irritants)
 
 *)
 
-type t = Obj.t
+let msb = 1 lsl (Sys.word_size - 2)
+
+module T : sig
+  type t
+  type immediate = True | False | Empty_list | Undefined | Eof | Char | Int
+  type closure
+
+  type block =
+    | Pair of { mutable car : t; mutable cdr : t }
+    | Vector of t array
+    | String of { mutable data : bytes }
+    | Symbol of { name : string }
+    | Bytevector of bytes
+    | Procedure of { arity : int; name : string; closure : closure }
+    | Error of { msg : string; irritants : t array }
+
+  val emptylist : t
+
+  (* val of_immediate : immediate -> t *)
+  val is_immediate : t -> bool
+  val is_block : t -> bool
+  val to_immediate : t -> immediate
+  val to_block : t -> block
+  val to_int : t -> int
+  val to_char : t -> Uchar.t
+  val get_sym : string -> t
+  val pair : t -> t -> t
+  val vector : t array -> t
+end = struct
+  type t = Obj.t
+  type immediate = True | False | Empty_list | Undefined | Eof | Char | Int
+  type closure
+
+  type block =
+    | Pair of { mutable car : t; mutable cdr : t }
+    | Vector of t array
+    | String of { mutable data : bytes }
+    | Symbol of { name : string }
+    | Bytevector of bytes
+    | Procedure of { arity : int; name : string; closure : closure }
+    | Error of { msg : string; irritants : t array }
+
+  let is_immediate t = Obj.is_int t
+  let is_block t = Obj.is_block t
+
+  let of_immediate t : t =
+    let n =
+      match t with
+      | False -> msb lor 0b000
+      | True -> msb lor 0b001
+      | Empty_list -> msb lor 0b100
+      | Eof -> msb lor 0b101
+      | Undefined -> msb lor 0b110
+      | Char -> msb lor 0b111
+      | Int -> 0
+    in
+    Obj.repr n
+
+  let emptylist = of_immediate Empty_list
+
+  let to_immediate t =
+    let t : int = Obj.obj t in
+    if t land msb = 0 then Int
+    else
+      match t land 0b111 with
+      | 0b000 -> False
+      | 0b001 -> True
+      | 0b100 -> Empty_list
+      | 0b101 -> Eof
+      | 0b110 -> Undefined
+      | 0b111 -> Char
+      | _ -> assert false
+
+  let to_int t : int = Obj.obj t
+  let to_char t = Uchar.unsafe_of_int ((Obj.obj t : int) lsr 3)
+  let to_block t : block = Obj.obj t
+  let pair car cdr = Obj.repr (Pair { car; cdr })
+  let vector arr = Obj.repr (Vector arr)
+
+  module H = Weak.Make (struct
+    type nonrec t = t
+
+    let hash = Hashtbl.hash
+
+    let equal t1 t2 =
+      String.equal (Obj.obj (Obj.field t1 0)) (Obj.obj (Obj.field t2 0))
+  end)
+
+  let symbols = H.create 0
+  let get_sym name = H.merge symbols (Obj.repr (Symbol { name }))
+end
+
+type t = T.t
 
 let () = Printexc.record_backtrace true
 
 exception Error of t
 
-module H = Weak.Make (struct
-  type nonrec t = t
+let get_sym s = T.get_sym s
 
-  let hash = Hashtbl.hash
-
-  let equal x1 x2 =
-    String.equal (Obj.obj (Obj.field x1 0)) (Obj.obj (Obj.field x2 0))
-end)
-
-let symbols = H.create 0
-
-let sym name =
-  Obj.repr (H.merge symbols (Obj.with_tag 3 (Obj.repr (Some name))))
-
-let msb = 1 lsl (Sys.word_size - 2)
-let emptylist = msb lor 0b100
-let falsev = msb
-let truev = msb lor 1
-let undefined = msb lor 0b110
-
-let rec write_simple oc x =
-  if Obj.is_int x then
-    let x = Obj.obj x in
-    if x land msb = 0 then (* int *)
-      output_string oc (string_of_int x)
-    else if x = emptylist then output_string oc "()"
-    else if x = falsev then output_string oc "#f"
-    else if x = truev then output_string oc "#t"
-    else if x = undefined then output_string oc "#<undefined>"
-    else assert false
+let rec write_simple oc obj =
+  if T.is_immediate obj then
+    match T.to_immediate obj with
+    | Int -> output_string oc (string_of_int (T.to_int obj))
+    | Empty_list -> output_string oc "()"
+    | False -> output_string oc "#f"
+    | True -> output_string oc "#t"
+    | Eof -> output_string oc "#<eof>"
+    | Undefined -> output_string oc "#<undefined>"
+    | Char -> Printf.fprintf oc "#\\%x" (Uchar.to_int (T.to_char obj))
   else
-    match Obj.tag x with
-    | 0 ->
-        (* cons *)
-        let car = Obj.field x 0 in
-        let cdr = Obj.field x 1 in
+    match T.to_block obj with
+    | Pair { car; cdr } ->
         Printf.fprintf oc "(%a . %a)" write_simple car write_simple cdr
-    | 1 ->
-        (* vector *)
-        let aux oc x =
-          for i = 0 to Obj.size x - 1 do
+    | Vector v ->
+        let aux oc v =
+          for i = 0 to Array.length v - 1 do
             if i > 0 then output_char oc ' ';
-            write_simple oc (Obj.field x i)
+            write_simple oc v.(i)
           done
         in
-        Printf.fprintf oc "#(%a)" aux x
-    | 3 ->
-        (* symbol *)
-        output_string oc (Obj.obj (Obj.field x 0))
-    | 4 ->
+        Printf.fprintf oc "#(%a)" aux v
+    | Symbol { name } -> output_string oc name
+    | Procedure { arity = _; name; closure = _ } ->
         (* procedure *)
-        let name = Obj.obj (Obj.field x 1) in
         if name <> "" then Printf.fprintf oc "#<%s:procedure>" name
         else output_string oc "#<procedure>"
-    | 5 ->
+    | String { data } -> Printf.fprintf oc "%S" (Bytes.unsafe_to_string data)
+    | Bytevector _ -> output_string oc "#<bytevector>"
+    | Error { msg; irritants } ->
         (* error *)
-        let n = Obj.size x - 1 in
-        let msg = Obj.obj (Obj.field x 0) in
         Printf.fprintf oc "Error: %s:" msg;
-        for i = 1 to n do
-          Printf.fprintf oc " %a" write_simple (Obj.field x i)
+        for i = 0 to Array.length irritants - 1 do
+          Printf.fprintf oc " %a" write_simple irritants.(i)
         done
-    | _ -> assert false
 
 (* let () = *)
 (*   Printexc.register_printer (function *)
@@ -97,19 +163,18 @@ let rec write_simple oc x =
 (*     | _ -> None) *)
 
 let print x = write_simple stdout x
-let null = Obj.repr emptylist
-let is_null obj = obj = null
-let is_pair obj = Obj.is_block obj && Obj.tag obj = 0
 
 let rec append = function
-  | [] -> null
+  | [] -> T.emptylist
   | list :: lists ->
       let rec loop list =
-        if Obj.is_int list then
-          if list = null then append lists else assert false (* type error *)
+        if T.is_immediate list then
+          match T.to_immediate list with
+          | Empty_list -> append lists
+          | _ -> assert false (* type error *)
         else
-          match Obj.tag list with
-          | 0 -> Obj.repr (Obj.field list 0, loop (Obj.field list 1))
+          match T.to_block list with
+          | Pair { car; cdr } -> T.pair car (loop cdr)
           | _ ->
               (* type error *)
               assert false
@@ -119,44 +184,58 @@ let rec append = function
 let list_to_vector list =
   let size =
     let rec aux accu list =
-      if is_null list then accu
-      else if is_pair list then aux (accu + 1) (Obj.field list 1)
-      else assert false
-      (* type error *)
+      if T.is_immediate list then
+        match T.to_immediate list with Empty_list -> accu | _ -> assert false
+      else
+        match T.to_block list with
+        | Pair { car = _; cdr } -> aux (accu + 1) cdr
+        | _ -> assert false
     in
     aux 0 list
   in
-  let vec = Obj.new_block 1 size in
-  let rec loop i list =
-    if i = size then vec
-    else (
-      Obj.set_field vec i (Obj.field list 0);
-      loop (i + 1) (Obj.field list 1))
+  let arr =
+    if T.is_immediate list then [||]
+    else
+      match T.to_block list with
+      | Pair { car; cdr } ->
+          let arr = Array.make size car in
+          let rec loop i t =
+            if T.is_immediate t then arr
+            else
+              match T.to_block t with
+              | Pair { car; cdr } ->
+                  arr.(i) <- car;
+                  loop (i + 1) cdr
+              | _ -> assert false
+          in
+          loop 1 cdr
+      | _ -> assert false
   in
-  loop 0 list
-
-let is_vector obj = Obj.is_block obj && Obj.tag obj = 1
+  T.vector arr
 
 let vector_append vectors =
   let size =
     let rec aux accu = function
       | [] -> accu
       | vector :: vectors ->
-          if is_vector vector then aux (accu + Obj.size vector) vectors
+          if T.is_block vector then
+            match T.to_block vector with
+            | Vector arr -> aux (accu + Array.length arr) vectors
+            | _ -> assert false
           else assert false
-      (* type error *)
     in
     aux 0 vectors
   in
-  let vec = Obj.new_block 1 size in
+  let dst = Array.make size T.emptylist in
   let rec loop i = function
-    | [] -> vec
-    | vector :: vectors ->
-        let size = Obj.size vector in
-        for j = 0 to size - 1 do
-          Obj.set_field vec (i + j) (Obj.field vector j)
-        done;
-        loop (i + size) vectors
+    | [] -> T.vector dst
+    | vector :: vectors -> (
+        match T.to_block vector with
+        | Vector src ->
+            let size = Array.length src in
+            Array.blit src 0 dst i size;
+            loop (i + size) vectors
+        | _ -> assert false)
   in
   loop 0 vectors
 

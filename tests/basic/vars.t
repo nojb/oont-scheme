@@ -11,14 +11,14 @@
             (if (|| (not (isint let/5)) (lsr let/5 62))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
-                  (makeblock 5 "Type error" let/5)))
+                  (makeblock 6 "Type error" (makeblock 0 let/5))))
               0)
             let/5)
           (seq
             (if (|| (not (isint let/6)) (lsr let/6 62))
               (raise
                 (makeblock 0 (field 0 (global Oont!))
-                  (makeblock 5 "Type error" let/6)))
+                  (makeblock 6 "Type error" (makeblock 0 let/6))))
               0)
             let/6))
         4611686018427387903)))
@@ -41,14 +41,14 @@
                 (if (|| (not (isint let/6)) (lsr let/6 62))
                   (raise
                     (makeblock 0 (field 0 (global Oont!))
-                      (makeblock 5 "Type error" let/6)))
+                      (makeblock 6 "Type error" (makeblock 0 let/6))))
                   0)
                 let/6)
               (seq
                 (if (|| (not (isint let/6)) (lsr let/6 62))
                   (raise
                     (makeblock 0 (field 0 (global Oont!))
-                      (makeblock 5 "Type error" let/6)))
+                      (makeblock 6 "Type error" (makeblock 0 let/6))))
                   0)
                 let/6))
             4611686018427387903))
