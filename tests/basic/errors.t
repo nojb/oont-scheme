@@ -3,7 +3,7 @@
   > EOF
 
   $ oont -dlambda err1.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (and
       (+
         (let (let/5 = 1)
@@ -14,7 +14,7 @@
                   (makeblock 6 "Type error" (makeblock 0 let/5))))
               0)
             let/5))
-        (let (let/6 = (apply (field 1 (global Oont!)) "a"))
+        (let (let/6 = (apply (field 6 (global Oont!)) "a"))
           (seq
             (if (|| (not (isint let/6)) (lsr let/6 62))
               (raise

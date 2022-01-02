@@ -3,4 +3,4 @@
 (executable
  (public_name oont)
  (name main)
- (libraries compiler-libs.bytecomp))
+ (libraries compiler-libs.bytecomp oont))

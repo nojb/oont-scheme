@@ -38,6 +38,10 @@ module T : sig
     | Error of { msg : string; irritants : t array }
 
   val emptylist : t
+  val undefined : t
+  val false_ : t
+  val true_ : t
+  val int : int -> t
 
   (* val of_immediate : immediate -> t *)
   val is_immediate : t -> bool
@@ -80,6 +84,10 @@ end = struct
     Obj.repr n
 
   let emptylist = of_immediate Empty_list
+  let undefined = of_immediate Undefined
+  let true_ = of_immediate True
+  let false_ = of_immediate False
+  let int n = Obj.repr (n land lnot msb)
 
   let to_immediate t =
     let t : int = Obj.obj t in
@@ -113,7 +121,7 @@ end = struct
   let get_sym name = H.merge symbols (Obj.repr (Symbol { name }))
 end
 
-type t = T.t
+include T
 
 let () = Printexc.record_backtrace true
 

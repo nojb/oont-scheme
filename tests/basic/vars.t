@@ -3,7 +3,7 @@
   > EOF
 
   $ oont -dlambda vars1.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (let (let/5 = 1 let/6 = 2)
       (and
         (+
@@ -31,7 +31,7 @@
   > EOF
 
   $ oont -dlambda vars2.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (let (let/5 = (makeblock 0 1) let/6 = 2)
       (seq
         (setfield_ptr 0 let/5

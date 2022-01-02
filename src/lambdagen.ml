@@ -1,21 +1,26 @@
 module P = Prepare
 module L = Lambda_helper
 
+let cons_tag = 0
+let procedure_tag = 5
+let error_tag = 6
 let msb = 1 lsl (Sys.word_size - 2)
-let falsev = L.int msb
-let truev = L.int (msb lor 1)
-let intv n = L.int (n land lnot msb)
+let falsev = L.const Oont.false_
+let truev = L.const Oont.true_
+let intv n = L.const (Oont.int n)
 let untag_int n = n
 let tag_int n = L.andint n (L.int (lnot msb))
 let stringv ~loc s = L.makeblock 2 [ L.string ~loc s ]
-let emptylist = L.int (msb lor 0b100)
-let undefined = L.int (msb lor 0b110)
+let emptylist = L.const Oont.emptylist
+let undefined = L.const Oont.undefined
 let prim name = L.value "Oont" name
 let boolv b = if b then truev else falsev
 let tag_bool x = L.ifthenelse x truev falsev
 let error_exn = lazy (L.extension_constructor "Oont" "Error")
-let cons car cdr = L.makemutable 0 [ car; cdr ]
-let errorv ~loc s objs = L.makeblock 6 [ L.string ~loc s; L.makeblock 0 objs ]
+let cons car cdr = L.makemutable cons_tag [ car; cdr ]
+
+let errorv ~loc s objs =
+  L.makeblock error_tag [ L.string ~loc s; L.makeblock 0 objs ]
 
 let type_error obj =
   L.raise
@@ -51,7 +56,7 @@ let apply f args =
       in
       L.seq
         (L.ifthenelse (L.isint f) (type_error f) (L.int 0))
-        (L.block_switch f [ (5, doit) ] (Some (type_error f))))
+        (L.block_switch f [ (procedure_tag, doit) ] (Some (type_error f))))
 
 let get_sym s = L.apply (prim "get_sym") [ L.string s ]
 

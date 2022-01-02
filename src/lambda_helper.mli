@@ -1,5 +1,6 @@
 type t = Lambda.lambda
 
+val const : 'a -> t
 val makeblock : int -> t list -> t
 val makemutable : int -> t list -> t
 val ifthenelse : t -> t -> t -> t

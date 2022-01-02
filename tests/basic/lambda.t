@@ -4,7 +4,7 @@
   > EOF
 
   $ oont -dlambda lambda1.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (seq (makeblock 5 1 "" (function dummy/3 12))
       (let (let/5 = (makeblock 5 1 "" (function dummy/4 12)))
         (seq
@@ -32,7 +32,7 @@
   > EOF
 
   $ oont -dlambda lambda2.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (let
       (let/13 =
          (makeblock 5 2 ""
@@ -120,7 +120,7 @@
   > EOF
 
   $ oont -dlambda lambda3.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (makeblock 5 1 ""
       (function arg/4
         (seq

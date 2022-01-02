@@ -3,7 +3,7 @@
   > EOF
 
   $ oont -dlambda arith1.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (and
       (+
         (let (let/3 = 2)
@@ -32,7 +32,7 @@
   > EOF
 
   $ oont -dlambda arith2.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (let (let/3 = 34)
       (seq
         (if (|| (not (isint let/3)) (lsr let/3 62))
@@ -50,7 +50,7 @@
   > EOF
 
   $ oont -dlambda arith3.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (let
       (let/7 =
          (and
@@ -88,7 +88,7 @@
   > EOF
 
   $ oont -dlambda arith4.scm
-  (apply (field 2 (global Oont!))
+  (apply (field 7 (global Oont!))
     (let (let/3 = 0)
       (seq
         (if (|| (not (isint let/3)) (lsr let/3 62))

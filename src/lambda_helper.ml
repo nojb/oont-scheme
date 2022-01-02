@@ -2,6 +2,20 @@ open Lambda
 
 type t = lambda
 
+let rec const x =
+  if Obj.is_int x then Lambda.const_int (Obj.magic x : int)
+  else
+    let tag = Obj.tag x in
+    if tag = Obj.string_tag then Const_immstring (Obj.magic x : string)
+    else if tag <= Obj.last_non_constant_constructor_tag then (
+      let l = ref [] in
+      for i = Obj.size x - 1 downto 0 do
+        l := const (Obj.field x i) :: !l
+      done;
+      Const_block (tag, !l))
+    else Misc.fatal_errorf "%s tag=%i" __FUNCTION__ tag
+
+let const x = Lconst (const (Obj.repr x))
 let prim p ts = Lprim (p, ts, Loc_unknown)
 let makeblock tag ts = prim (Pmakeblock (tag, Immutable, None)) ts
 let makemutable tag ts = prim (Pmakeblock (tag, Mutable, None)) ts
