@@ -139,7 +139,7 @@ let rec comp_expr env { P.desc; loc } =
           ( List.map snd args,
             List.fold_left (fun env (id, id1) -> add_var id id1 env) env args )
       in
-      L.makeblock 5
+      L.makeblock procedure_tag
         [
           L.int (List.length args);
           L.string "";
