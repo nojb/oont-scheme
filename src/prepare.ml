@@ -133,6 +133,7 @@ and parse_sexp_list env = function
 
 let begin_syntax ~loc:_ env sexpl = parse_sexp_list env sexpl
 let define_syntax ~loc:_ _env _sexpl = failwith "define: not allowed here"
+let external_syntax ~loc:_ _env _sexpl = failwith "external: not allowed here"
 
 let rec expand_begin env sexpl =
   let expand = function
@@ -165,6 +166,21 @@ let is_define env = function
       | _ -> None)
   | _ -> None
 
+let is_external env = function
+  | { sexp_desc = List ({ sexp_desc = Atom s; _ } :: sexpl); _ } -> (
+      match Env.find_opt s env with
+      | Some (Esyntax f) when f == external_syntax -> (
+          match sexpl with
+          | [
+           { sexp_desc = Atom name; _ };
+           { sexp_desc = Int n; _ };
+           { sexp_desc = String call; _ };
+          ] ->
+              Some (name, n, call)
+          | _ -> failwith "external: bad syntax")
+      | _ -> None)
+  | _ -> None
+
 let parse_toplevel env sexpl =
   let sexpl = expand_begin env sexpl in
   let rec aux env = function
@@ -187,10 +203,14 @@ let parse_toplevel env sexpl =
                      ( mk (Assign (Location.mknoloc id, def env)) Location.none,
                        aux env sexpl ))
                   Location.none)
-        | None ->
-            let e = parse_sexp env sexp in
-            if sexpl = [] then e else mk (Cseq (e, aux env sexpl)) Location.none
-        )
+        | None -> (
+            match is_external env sexp with
+            | Some (name, n, call) ->
+                aux (Env.add name (Eprim (Pcall (n, call))) env) sexpl
+            | None ->
+                let e = parse_sexp env sexp in
+                if sexpl = [] then e
+                else mk (Cseq (e, aux env sexpl)) Location.none))
     | [] -> const ~loc:Location.none Const_undefined
   in
   aux env sexpl
@@ -471,6 +491,7 @@ let initial_env =
       ("include", Esyntax include_syntax);
       ("define", Esyntax define_syntax);
       ("begin", Esyntax begin_syntax);
+      ("external", Esyntax external_syntax);
     ]
   in
   List.fold_left
