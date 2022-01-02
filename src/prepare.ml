@@ -127,6 +127,76 @@ and parse_sexp_list env = function
   | sexp :: sexpl ->
       mk (Cseq (parse_sexp env sexp, parse_sexp_list env sexpl)) Location.none
 
+and begin_syntax ~loc:_ env sexpl = parse_sexp_list env sexpl
+and define_syntax ~loc:_ _env _sexpl = failwith "define: not allowed here"
+
+and expand_begin env sexpl =
+  let expand = function
+    | { sexp_desc = List ({ sexp_desc = Atom s; _ } :: sexpl); _ } as sexp -> (
+        match Env.find_opt s env with
+        | Some (Esyntax f) when f == begin_syntax -> expand_begin env sexpl
+        | _ -> [ sexp ])
+    | sexp -> [ sexp ]
+  in
+  List.flatten (List.map expand sexpl)
+
+and is_define env = function
+  | { sexp_desc = List ({ sexp_desc = Atom s; _ } :: sexpl); _ } -> (
+      match Env.find_opt s env with
+      | Some (Esyntax f) when f == define_syntax -> (
+          match sexpl with
+          | { sexp_desc = List ({ sexp_desc = Atom f; _ } :: args); _ } :: body
+            -> (
+              let rec doargs accu = function
+                | { sexp_desc = Atom s; sexp_loc = loc } :: args ->
+                    doargs (Location.mkloc s loc :: accu) args
+                | [] -> Some (List.rev accu)
+                | _ -> None
+              in
+              match doargs [] args with
+              | None -> None
+              | Some args -> Some (f, `Lambda (args, body)))
+          | [ { sexp_desc = Atom s; _ }; e ] -> Some (s, `Var e)
+          | _ -> failwith "define: bad syntax")
+      | _ -> None)
+  | _ -> None
+
+and parse_body env sexpl =
+  let rec aux = function
+    | [] -> ([], [])
+    | sexp :: sexpl as sexpl' -> (
+        match is_define env sexp with
+        | Some def ->
+            let defs, sexpl = aux sexpl in
+            (def :: defs, sexpl)
+        | None -> ([], sexpl'))
+  in
+  let defs, sexpl = aux (expand_begin env sexpl) in
+  let defs = List.map (fun (s, def) -> (s, Ident.create_local s, def)) defs in
+  let env =
+    List.fold_left (fun env (s, id, _) -> Env.add s (Evar id) env) env defs
+  in
+  let body =
+    List.fold_left
+      (fun cont (_, id, def) ->
+        let def =
+          match def with
+          | `Var e -> parse_sexp env e
+          | `Lambda (_args, _body) -> assert false
+        in
+        mk
+          (Cseq (mk (Assign (Location.mknoloc id, def)) Location.none, cont))
+          Location.none)
+      (parse_sexp_list env sexpl)
+      (List.rev defs)
+  in
+  List.fold_left
+    (fun cont (_, id, _) ->
+      mk
+        (Let (id, const ~loc:Location.none Const_undefined, cont))
+        Location.none)
+    body (List.rev defs)
+
 let if_syntax ~loc env = function
   | [ x1; x2 ] -> mk (If (parse_sexp env x1, parse_sexp env x2, undefined)) loc
   | [ x1; x2; x3 ] ->
@@ -160,7 +230,7 @@ let lambda_syntax ~loc env = function
           (function
             | { sexp_desc = Atom arg; sexp_loc = loc } ->
                 (arg, Ident.create_local arg, loc)
-            | _ -> assert false)
+            | _ -> failwith "lambda: bad syntax")
           args
       in
       let env =
@@ -169,12 +239,12 @@ let lambda_syntax ~loc env = function
           env args
       in
       let args = List.map (fun (_, id, loc) -> Location.mkloc id loc) args in
-      mk (Lambda (args, None, parse_sexp_list env body)) loc
+      mk (Lambda (args, None, parse_body env body)) loc
   | { sexp_desc = Atom args; sexp_loc = loc_args } :: body ->
       let id = Ident.create_local args in
       let env = Env.add args (Evar id) env in
       mk
-        (Lambda ([], Some (Location.mkloc id loc_args), parse_sexp_list env body))
+        (Lambda ([], Some (Location.mkloc id loc_args), parse_body env body))
         loc
   | _ -> failwith "lambda: bad syntax"
 
@@ -209,7 +279,7 @@ let let_syntax ~loc env = function
       List.fold_right
         (fun (_, id, e) body -> mk (Let (id, e, body)) loc)
         (* FIXME loc *)
-        bindings (parse_sexp_list env body)
+        bindings (parse_body env body)
   | _ -> failwith "let: bad syntax"
 
 let and_syntax ~loc env el =
@@ -363,6 +433,8 @@ let initial_env =
       ("eq?", Eprim Peq);
       ("eqv?", Eprim Peq);
       ("include", Esyntax include_syntax);
+      ("define", Esyntax define_syntax);
+      ("begin", Esyntax begin_syntax);
     ]
   in
   List.fold_left
