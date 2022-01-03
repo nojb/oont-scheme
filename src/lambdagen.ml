@@ -2,6 +2,7 @@ module P = Prepare
 module L = Lambda_helper
 
 let cons_tag = 0
+let vector_tag = 1
 let string_tag = 2
 let procedure_tag = 5
 let error_tag = 6
@@ -79,7 +80,7 @@ let comp_primitive p args =
   | Psym s, [] -> get_sym s
   | Pappend, el -> L.apply (prim "append") [ List.fold_left cons (L.int 0) el ]
   | Peq, [ e1; e2 ] -> L.eq e1 e2
-  | Pvector, el -> L.makeblock 1 [ L.makeblock 0 el ]
+  | Pvector, el -> L.makeblock vector_tag [ L.makeblock 0 el ]
   | Plist, el -> List.fold_left cons emptylist (List.rev el)
   | Pvectoroflist, [ e ] -> L.apply (prim "list_to_vector") [ e ]
   | Pvectorappend, el ->
