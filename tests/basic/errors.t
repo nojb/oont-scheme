@@ -6,7 +6,7 @@
   (apply (field 29 (global Oont!))
     (and
       (+
-        (let (let/7 = 1)
+        (let (let/7 = 2)
           (seq
             (if (|| (not (isint let/7)) (lsr let/7 62))
               (raise
@@ -36,7 +36,7 @@
 
   $ oont -dlambda err2.scm
   (apply (field 29 (global Oont!))
-    (apply (field 27 (global R7rs!)) (makeblock 1 (makeblock 0 1 2 3))))
+    (apply (field 27 (global R7rs!)) (makeblock 1 (makeblock 0 2 4 6))))
 
   $ ./err2.exe
   3

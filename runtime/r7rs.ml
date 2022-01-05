@@ -24,12 +24,7 @@ let booleaneqp objs =
     let obj = objs.(0) in
     match T.classify obj with True | False -> aux true 1 | _ -> T.false_
 
-let pairp obj =
-  match T.classify obj with
-  | Empty_list -> T.true_
-  | Pair -> T.true_
-  | _ -> T.false_
-
+let pairp obj = match T.classify obj with Pair -> T.true_ | _ -> T.false_
 let cons obj1 obj2 = T.mkpair obj1 obj2
 
 let car pair =

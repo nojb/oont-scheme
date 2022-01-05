@@ -5,8 +5,8 @@
 
   $ oont -dlambda lambda1.scm
   (apply (field 29 (global Oont!))
-    (seq (makeblock 5 1 "" (function dummy/9 12))
-      (let (let/4 = (makeblock 5 1 "" (function dummy/3 12)))
+    (seq (makeblock 5 1 "" (function dummy/9 24))
+      (let (let/4 = (makeblock 5 1 "" (function dummy/3 24)))
         (seq
           (if (isint let/4)
             (raise
@@ -94,7 +94,7 @@
                               (makeblock 6 "Type error" (makeblock 0 arg/6))))
                           0)
                         arg/6)
-                      (let (let/11 = 1)
+                      (let (let/11 = 2)
                         (seq
                           (if (|| (not (isint let/11)) (lsr let/11 62))
                             (raise
@@ -103,7 +103,7 @@
                             0)
                           let/11)))
                     4611686018427387903)))
-              12)
+              24)
             (raise
               (makeblock 0 (field 0 (global Oont!))
                 (makeblock 6 "Type error" (makeblock 0 let/15)))))
@@ -129,7 +129,7 @@
               (makeblock 0 (field 0 (global Oont!))
                 (makeblock 6 "Type error" (makeblock 0 arg/4))))
             0)
-          (if (== arg/4 0) -4611686018427387903 -4611686018427387904)))))
+          (if (== arg/4 0) 3 1)))))
 
   $ ./lambda3.exe
   #<procedure>

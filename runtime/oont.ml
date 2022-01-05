@@ -3,13 +3,13 @@
 Runtime representation
 ----------------------
 
-int                   immediate               msb 0
-true                  immediate               msb 1, 0b001
-false                 immediate               msb 1, 0b000
-empty list            immediate               msb 1, 0b100
-undefined             immediate               msb 1, 0b110
-eof                   immediate               msb 1, 0b101
-char                  immediate               msb 1, 0b111
+int                   immediate               lsb 0
+false                 immediate               0b0001
+true                  immediate               0b0011
+empty list            immediate               0b0101
+undefined             immediate               0b0111
+eof                   immediate               0b1001
+char                  immediate               0b1011
 pair                  block                   tag 0, size 2
 vector                block                   tag 1, size 1 (array)
 string                block                   tag 2, size 1 (mutable, bytes)
@@ -52,19 +52,17 @@ type block =
   | Procedure of { arity : int; name : string; closure : closure }
   | Error_object of { msg : string; irritants : t array }
 
-let msb = 1 lsl (Sys.word_size - 2)
-
 let mk t : t =
   let n =
     match t with
-    | False -> msb lor 0b000
-    | True -> msb lor 0b001
-    | Empty_list -> msb lor 0b100
-    | Eof -> msb lor 0b101
-    | Undefined -> msb lor 0b110
-    | Char -> msb lor 0b111
-    | Int -> 0
-    | Pair | Vector | String | Symbol | Bytevector | Procedure | Error_object ->
+    | False -> 0b0001
+    | True -> 0b0011
+    | Empty_list -> 0b0101
+    | Eof -> 0b1001
+    | Undefined -> 0b0111
+    | Char -> 0b1011
+    | Int | Pair | Vector | String | Symbol | Bytevector | Procedure
+    | Error_object ->
         assert false
   in
   Obj.repr n
@@ -73,7 +71,7 @@ let emptylist = mk Empty_list
 let undefined = mk Undefined
 let true_ = mk True
 let false_ = mk False
-let int n = Obj.repr (n land lnot msb)
+let int n = Obj.repr (n lsl 1)
 
 let classify t : kind =
   if Obj.is_block t then
@@ -87,19 +85,19 @@ let classify t : kind =
     | Error_object _ -> Error_object
   else
     let t : int = Obj.obj t in
-    if t land msb = 0 then Int
+    if t land 1 = 0 then Int
     else
-      match t land 0b111 with
-      | 0b000 -> False
-      | 0b001 -> True
-      | 0b100 -> Empty_list
-      | 0b101 -> Eof
-      | 0b110 -> Undefined
-      | 0b111 -> Char
+      match t land 0b1111 with
+      | 0b0001 -> False
+      | 0b0011 -> True
+      | 0b0101 -> Empty_list
+      | 0b1001 -> Eof
+      | 0b0111 -> Undefined
+      | 0b1011 -> Char
       | _ -> assert false
 
-let unsafe_to_int t : int = Obj.obj t
-let unsafe_to_uchar t = Uchar.unsafe_of_int ((Obj.obj t : int) lsr 3)
+let unsafe_to_int t : int = Obj.obj t asr 1
+let unsafe_to_uchar t = Uchar.unsafe_of_int ((Obj.obj t : int) lsr 4)
 let unsafe_car t = Obj.field t 0
 let unsafe_cdr t = Obj.field t 1
 let unsafe_set_car t obj = Obj.set_field t 0 obj

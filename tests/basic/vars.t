@@ -4,7 +4,7 @@
 
   $ oont -dlambda vars1.scm
   (apply (field 29 (global Oont!))
-    (let (let/5 = 1 let/6 = 2)
+    (let (let/5 = 2 let/6 = 4)
       (and
         (+
           (seq
@@ -32,7 +32,7 @@
 
   $ oont -dlambda vars2.scm
   (apply (field 29 (global Oont!))
-    (let (let/5 = (makeblock 0 1) let/6 = 2)
+    (let (let/5 = (makeblock 0 2) let/6 = 4)
       (seq
         (setfield_ptr 0 let/5
           (and

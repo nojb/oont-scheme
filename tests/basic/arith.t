@@ -6,7 +6,7 @@
   (apply (field 29 (global Oont!))
     (and
       (+
-        (let (let/3 = 2)
+        (let (let/3 = 4)
           (seq
             (if (|| (not (isint let/3)) (lsr let/3 62))
               (raise
@@ -14,7 +14,7 @@
                   (makeblock 6 "Type error" (makeblock 0 let/3))))
               0)
             let/3))
-        (let (let/8 = 3)
+        (let (let/8 = 6)
           (seq
             (if (|| (not (isint let/8)) (lsr let/8 62))
               (raise
@@ -33,14 +33,14 @@
 
   $ oont -dlambda arith2.scm
   (apply (field 29 (global Oont!))
-    (let (let/3 = 34)
+    (let (let/3 = 68)
       (seq
         (if (|| (not (isint let/3)) (lsr let/3 62))
           (raise
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 6 "Type error" (makeblock 0 let/3))))
           0)
-        (if (== let/3 0) -4611686018427387903 -4611686018427387904))))
+        (if (== let/3 0) 3 1))))
 
   $ ./arith2.exe
   #f
@@ -55,7 +55,7 @@
       (let/9 =
          (and
            (+
-             (let (let/3 = 1)
+             (let (let/3 = 2)
                (seq
                  (if (|| (not (isint let/3)) (lsr let/3 62))
                    (raise
@@ -63,7 +63,7 @@
                        (makeblock 6 "Type error" (makeblock 0 let/3))))
                    0)
                  let/3))
-             (let (let/8 = 2)
+             (let (let/8 = 4)
                (seq
                  (if (|| (not (isint let/8)) (lsr let/8 62))
                    (raise
@@ -78,7 +78,7 @@
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 6 "Type error" (makeblock 0 let/9))))
           0)
-        (if (== let/9 0) -4611686018427387903 -4611686018427387904))))
+        (if (== let/9 0) 3 1))))
 
   $ ./arith3.exe
   #f
@@ -96,7 +96,7 @@
             (makeblock 0 (field 0 (global Oont!))
               (makeblock 6 "Type error" (makeblock 0 let/3))))
           0)
-        (if (== let/3 0) -4611686018427387903 -4611686018427387904))))
+        (if (== let/3 0) 3 1))))
 
   $ ./arith4.exe
   #t
