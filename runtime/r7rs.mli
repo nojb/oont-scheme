@@ -113,6 +113,14 @@ val char_downcase : t -> t
 val char_foldcase : t -> t
 (** (char-foldcase char) *)
 
+(** Strings *)
+
+val stringp : t -> t
+(** (string? obj) *)
+
+val make_string : t -> t -> t
+(** (make-string k fill) *)
+
 (** Vectors *)
 
 val vectorp : t -> t

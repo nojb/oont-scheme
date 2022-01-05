@@ -252,6 +252,21 @@ let char_foldcase char =
   | `Uchars [ u ] -> T.mkchar u
   | `Self | `Uchars _ -> char
 
+(* Strings *)
+
+let stringp obj = match T.classify obj with String -> T.true_ | _ -> T.false_
+
+let make_string k char =
+  let k = getint "make-string" k in
+  let char = getchar "make-string" char in
+  if Uchar.is_char char then T.mkstring (Bytes.make k (Uchar.to_char char))
+  else
+    let buf = Buffer.create k in
+    for _ = 1 to k do
+      Buffer.add_utf_8_uchar buf char
+    done;
+    T.mkstring (Bytes.unsafe_of_string (Buffer.contents buf))
+
 (* Vectors *)
 
 let vectorp obj = match T.classify obj with Vector -> T.true_ | _ -> T.false_
