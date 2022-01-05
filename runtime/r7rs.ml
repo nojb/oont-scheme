@@ -10,19 +10,16 @@ let booleanp obj =
   match T.classify obj with False | True -> T.true_ | _ -> T.false_
 
 let booleaneqp objs =
-  let nobjs = Array.length objs in
-  if nobjs = 0 then T.true_
-  else
-    let rec aux accu i =
-      if i >= nobjs then if accu then T.true_ else T.false_
-      else
-        let obj = objs.(i) in
-        match T.classify obj with
-        | True | False -> aux (accu && obj == objs.(i - 1)) (i + 1)
-        | _ -> T.false_
-    in
-    let obj = objs.(0) in
-    match T.classify obj with True | False -> aux true 1 | _ -> T.false_
+  let rec aux accu i =
+    if i >= Array.length objs then T.mkbool accu
+    else
+      let obj = objs.(i) in
+      match T.classify obj with
+      | True | False ->
+          aux (accu && if i > 0 then obj == objs.(i - 1) else true) (i + 1)
+      | _ -> prim_err "boolean=?" "boolean" [ obj ]
+  in
+  aux true 0
 
 let pairp obj = match T.classify obj with Pair -> T.true_ | _ -> T.false_
 let cons obj1 obj2 = T.mkpair obj1 obj2
