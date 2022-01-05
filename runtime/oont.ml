@@ -72,6 +72,7 @@ let undefined = mk Undefined
 let true_ = mk True
 let false_ = mk False
 let int n = Obj.repr (n lsl 1)
+let mkchar u = Obj.repr ((Uchar.to_int u lsl 4) lor 0b1011)
 
 let classify t : kind =
   if Obj.is_block t then
@@ -123,6 +124,8 @@ let mkerror msg irritants = Obj.repr (Error_object { msg; irritants })
 let mkprocedure arity name closure =
   Obj.repr (Procedure { arity; name; closure })
 
+let mkbool = function true -> true_ | false -> false_
+
 module H = Weak.Make (struct
   type nonrec t = t
 
@@ -134,6 +137,25 @@ end)
 
 let symbols = H.create 0
 let mksym name = H.merge symbols (Obj.repr (Symbol { name }))
+
+let tag : kind -> int =
+  let pair = mkpair emptylist emptylist in
+  let vector = mkvector [||] in
+  let string = mkstring (Bytes.create 0) in
+  let symbol = mksym "" in
+  let bytevector = mkbytevector (Bytes.create 0) in
+  let procedure = mkprocedure 0 "" (Obj.magic ignore) in
+  let error_object = mkerror "" [||] in
+  function
+  | Pair -> Obj.tag pair
+  | Vector -> Obj.tag vector
+  | String -> Obj.tag string
+  | Symbol -> Obj.tag symbol
+  | Bytevector -> Obj.tag bytevector
+  | Procedure -> Obj.tag procedure
+  | Error_object -> Obj.tag error_object
+  | True | False | Empty_list | Undefined | Eof | Char | Int -> assert false
+
 let () = Printexc.record_backtrace true
 
 let rec write_simple oc obj =

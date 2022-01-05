@@ -1,4 +1,5 @@
 (library
  (public_name oont)
  (name oont)
- (wrapped false))
+ (wrapped false)
+ (libraries uucp))

@@ -195,6 +195,63 @@ let string_to_symbol string =
 
 let charp obj = match T.classify obj with Char -> T.true_ | _ -> T.false_
 
+let getchar name char =
+  match T.classify char with
+  | Char -> T.unsafe_to_uchar char
+  | _ -> prim_err name "character" [ char ]
+
+let getint name n =
+  match T.classify n with
+  | Int -> T.unsafe_to_int n
+  | _ -> prim_err name "integer" [ n ]
+
+let char_prop name p char =
+  let u = getchar (Printf.sprintf "char-%s?" name) char in
+  T.mkbool (p u)
+
+let char_alphabeticp = char_prop "alphabetic" Uucp.Alpha.is_alphabetic
+let char_numericp = char_prop "numeric" (fun u -> Uucp.Num.numeric_type u = `Di)
+let char_whitespacep = char_prop "whitespace" Uucp.White.is_white_space
+let char_upper_casep = char_prop "upper-case" Uucp.Case.is_upper
+let char_lower_casep = char_prop "lower-case" Uucp.Case.is_lower
+
+let digit_value char =
+  let u = getchar "digit-value" char in
+  match Uucp.Num.numeric_type u with
+  | `Di -> (
+      match Uucp.Num.numeric_value u with
+      | `Num n -> T.int (Int64.to_int n)
+      | _ -> T.false_)
+  | _ -> T.false_
+
+let char_to_integer char =
+  let u = getchar "char->integer" char in
+  T.int (Uchar.to_int u)
+
+let integer_to_char num =
+  let n = getint "integer->char" num in
+  if Stdlib.not (Uchar.is_valid n) then
+    prim_err "integer->char" "invalid value" [ num ];
+  T.mkchar (Uchar.of_int n)
+
+let char_upcase char =
+  let u = getchar "char-upcase" char in
+  match Uucp.Case.Map.to_upper u with
+  | `Uchars [ u ] -> T.mkchar u
+  | `Self | `Uchars _ -> char
+
+let char_downcase char =
+  let u = getchar "char-downcase" char in
+  match Uucp.Case.Map.to_lower u with
+  | `Uchars [ u ] -> T.mkchar u
+  | `Self | `Uchars _ -> char
+
+let char_foldcase char =
+  let u = getchar "char-foldcase" char in
+  match Uucp.Case.Fold.fold u with
+  | `Uchars [ u ] -> T.mkchar u
+  | `Self | `Uchars _ -> char
+
 (* Vectors *)
 
 let vectorp obj = match T.classify obj with Vector -> T.true_ | _ -> T.false_

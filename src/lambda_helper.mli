@@ -9,6 +9,7 @@ val isint : t -> t
 val not : t -> t
 val addint : t -> t -> t
 val andint : t -> t -> t
+val asrint : t -> t -> t
 val lslint : t -> t -> t
 val lsrint : t -> t -> t
 val field : int -> t -> t

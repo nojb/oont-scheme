@@ -25,6 +25,7 @@ val undefined : t
 val false_ : t
 val true_ : t
 val int : int -> t
+val mkchar : Uchar.t -> t
 
 (* *)
 
@@ -57,6 +58,11 @@ val mkstring : bytes -> t
 val mkbytevector : bytes -> t
 val mkerror : string -> t array -> t
 val mkprocedure : int -> string -> closure -> t
+val mkbool : bool -> t
+
+(* *)
+
+val tag : kind -> int
 
 (* *)
 

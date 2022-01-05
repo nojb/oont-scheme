@@ -80,6 +80,39 @@ val string_to_symbol : t -> t
 val charp : t -> t
 (** (char? obj) *)
 
+val char_alphabeticp : t -> t
+(** (char-alphabetic? char) *)
+
+val char_numericp : t -> t
+(** (char-numeric? char) *)
+
+val char_whitespacep : t -> t
+(** (char-whitespace? char) *)
+
+val char_upper_casep : t -> t
+(** (char-upper-case? char) *)
+
+val char_lower_casep : t -> t
+(** (char-lower-case? char) *)
+
+val digit_value : t -> t
+(** (digit-value char) *)
+
+val char_to_integer : t -> t
+(** (char->integer char) *)
+
+val integer_to_char : t -> t
+(** (integer->char n) *)
+
+val char_upcase : t -> t
+(** (char-upcase char) *)
+
+val char_downcase : t -> t
+(** (char-downcase char) *)
+
+val char_foldcase : t -> t
+(** (char-foldcase char) *)
+
 (** Vectors *)
 
 val vectorp : t -> t
