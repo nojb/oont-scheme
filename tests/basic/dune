@@ -1,9 +1,12 @@
 (cram
  (deps
   %{bin:oont}
+  r7rs.cmi
   oont.cmi
   oont.cma))
 
 (rule (copy %{lib:oont:oont.cmi} oont.cmi))
+
+(rule (copy %{lib:oont:r7rs.cmi} r7rs.cmi))
 
 (rule (copy %{lib:oont:oont.cma} oont.cma))

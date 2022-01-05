@@ -15,7 +15,7 @@ let tag_int n = L.andint n (L.int (lnot msb))
 let stringv ~loc s = L.makeblock string_tag [ L.string ~loc s ]
 let emptylist = L.const Oont.emptylist
 let undefined = L.const Oont.undefined
-let prim name = L.value "Oont" name
+let prim = L.value
 let boolv b = if b then truev else falsev
 let tag_bool x = L.ifthenelse x truev falsev
 let error_exn = lazy (L.extension_constructor "Oont" "Error")
@@ -60,7 +60,7 @@ let apply f args =
         (L.ifthenelse (L.isint f) (type_error f) (L.int 0))
         (L.block_switch f [ (procedure_tag, doit) ] (Some (type_error f))))
 
-let get_sym s = L.apply (prim "get_sym") [ L.string s ]
+let get_sym s = L.apply (prim "Oont" "mksym") [ L.string s ]
 
 let comp_primitive p args =
   match (p, args) with
@@ -78,15 +78,15 @@ let comp_primitive p args =
            (toint x) xs)
   | Pcons, [ car; cdr ] -> cons car cdr
   | Psym s, [] -> get_sym s
-  | Pappend, el -> L.apply (prim "append") [ List.fold_left cons (L.int 0) el ]
+  | Pappend, el -> L.apply (prim "R7rs" "append") [ L.makeblock 0 el ]
   | Peq, [ e1; e2 ] -> L.eq e1 e2
   | Pvector, el -> L.makeblock vector_tag [ L.makeblock 0 el ]
-  | Plist, el -> List.fold_left cons emptylist (List.rev el)
-  | Pvectoroflist, [ e ] -> L.apply (prim "list_to_vector") [ e ]
+  | Plist, el -> L.apply (prim "R7rs" "list") [ L.makeblock 0 el ]
+  | Pvectoroflist, [ e ] -> L.apply (prim "R7rs" "list_to_vector") [ e ]
   | Pvectorappend, el ->
-      L.apply (prim "vector_append") [ List.fold_left cons (L.int 0) el ]
-  | Papply, [ f; args ] -> L.apply (prim "apply") [ f; args ]
-  | Pcall (_, s), _ -> L.apply (prim s) args
+      L.apply (prim "R7rs" "vector_append") [ L.makeblock 0 el ]
+  | Papply, [ f; args ] -> L.apply (prim "R7rs" "apply") [ f; args ]
+  | Pcall (_, s), _ -> L.apply (prim "R7rs" s) args (* FIXME *)
   | (Pzerop | Pcons | Psym _ | Peq | Pvectoroflist | Papply), _ ->
       invalid_arg "comp_primitive"
 

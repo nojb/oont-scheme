@@ -4,8 +4,8 @@
   > EOF
 
   $ oont -dlambda lambda1.scm
-  (apply (field 7 (global Oont!))
-    (seq (makeblock 5 1 "" (function dummy/7 12))
+  (apply (field 29 (global Oont!))
+    (seq (makeblock 5 1 "" (function dummy/9 12))
       (let (let/4 = (makeblock 5 1 "" (function dummy/3 12)))
         (seq
           (if (isint let/4)
@@ -32,57 +32,57 @@
   > EOF
 
   $ oont -dlambda lambda2.scm
-  (apply (field 7 (global Oont!))
+  (apply (field 29 (global Oont!))
     (let
-      (let/13 =
+      (let/15 =
          (makeblock 5 2 ""
-           (function arg/10 arg/11
+           (function arg/12 arg/13
              (and
                (+
                  (let
-                   (let/12 =
+                   (let/14 =
                       (seq
-                        (if (isint arg/10)
+                        (if (isint arg/12)
                           (raise
                             (makeblock 0 (field 0 (global Oont!))
-                              (makeblock 6 "Type error" (makeblock 0 arg/10))))
+                              (makeblock 6 "Type error" (makeblock 0 arg/12))))
                           0)
-                        (switch arg/10
+                        (switch arg/12
                          case tag 5:
-                          (if (== 1 (field 0 arg/10))
-                            (apply (field 2 arg/10) arg/11)
+                          (if (== 1 (field 0 arg/12))
+                            (apply (field 2 arg/12) arg/13)
                             (raise
                               (makeblock 0 (field 0 (global Oont!))
-                                (makeblock 6 "Type error" (makeblock 0 arg/10)))))
+                                (makeblock 6 "Type error" (makeblock 0 arg/12)))))
                          default:
                           (raise
                             (makeblock 0 (field 0 (global Oont!))
-                              (makeblock 6 "Type error" (makeblock 0 arg/10)))))))
+                              (makeblock 6 "Type error" (makeblock 0 arg/12)))))))
                    (seq
-                     (if (|| (not (isint let/12)) (lsr let/12 62))
+                     (if (|| (not (isint let/14)) (lsr let/14 62))
                        (raise
                          (makeblock 0 (field 0 (global Oont!))
-                           (makeblock 6 "Type error" (makeblock 0 let/12))))
+                           (makeblock 6 "Type error" (makeblock 0 let/14))))
                        0)
-                     let/12))
+                     let/14))
                  (seq
-                   (if (|| (not (isint arg/11)) (lsr arg/11 62))
+                   (if (|| (not (isint arg/13)) (lsr arg/13 62))
                      (raise
                        (makeblock 0 (field 0 (global Oont!))
-                         (makeblock 6 "Type error" (makeblock 0 arg/11))))
+                         (makeblock 6 "Type error" (makeblock 0 arg/13))))
                      0)
-                   arg/11))
+                   arg/13))
                4611686018427387903))))
       (seq
-        (if (isint let/13)
+        (if (isint let/15)
           (raise
             (makeblock 0 (field 0 (global Oont!))
-              (makeblock 6 "Type error" (makeblock 0 let/13))))
+              (makeblock 6 "Type error" (makeblock 0 let/15))))
           0)
-        (switch let/13
+        (switch let/15
          case tag 5:
-          (if (== 2 (field 0 let/13))
-            (apply (field 2 let/13)
+          (if (== 2 (field 0 let/15))
+            (apply (field 2 let/15)
               (makeblock 5 1 ""
                 (function arg/6
                   (and
@@ -94,23 +94,23 @@
                               (makeblock 6 "Type error" (makeblock 0 arg/6))))
                           0)
                         arg/6)
-                      (let (let/9 = 1)
+                      (let (let/11 = 1)
                         (seq
-                          (if (|| (not (isint let/9)) (lsr let/9 62))
+                          (if (|| (not (isint let/11)) (lsr let/11 62))
                             (raise
                               (makeblock 0 (field 0 (global Oont!))
-                                (makeblock 6 "Type error" (makeblock 0 let/9))))
+                                (makeblock 6 "Type error" (makeblock 0 let/11))))
                             0)
-                          let/9)))
+                          let/11)))
                     4611686018427387903)))
               12)
             (raise
               (makeblock 0 (field 0 (global Oont!))
-                (makeblock 6 "Type error" (makeblock 0 let/13)))))
+                (makeblock 6 "Type error" (makeblock 0 let/15)))))
          default:
           (raise
             (makeblock 0 (field 0 (global Oont!))
-              (makeblock 6 "Type error" (makeblock 0 let/13))))))))
+              (makeblock 6 "Type error" (makeblock 0 let/15))))))))
 
   $ ./lambda2.exe
   25
@@ -120,7 +120,7 @@
   > EOF
 
   $ oont -dlambda lambda3.scm
-  (apply (field 7 (global Oont!))
+  (apply (field 29 (global Oont!))
     (makeblock 5 1 ""
       (function arg/4
         (seq
