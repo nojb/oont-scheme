@@ -43,6 +43,13 @@ type kind =
 
 type closure
 
+type input_port =
+  | String of { data : string; mutable pos : int }
+  | In_channel of { peek : Uchar.t option; chan : in_channel }
+(* FIXME unicode *)
+
+type output_port = Buffer of Buffer.t | Out_channel of out_channel
+
 type block =
   | Pair of { mutable car : t; mutable cdr : t }
   | Vector of t array
@@ -51,6 +58,7 @@ type block =
   | Bytevector of bytes
   | Procedure of { arity : int; name : string; closure : closure }
   | Error_object of { msg : string; irritants : t array }
+  | Input_port of input_port
 
 let mk t : t =
   let n =
